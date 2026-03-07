@@ -5,16 +5,15 @@ import os
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
-from pydantic import AliasChoices, Field
-from pydantic_settings import SettingsConfigDict
-
 from cicaddy.config.settings import (  # noqa: F401
+    _SENSITIVE_FIELD_NAMES,
+    SENSITIVE_ENV_VAR_NAMES,
     CoreSettings,
     MCPServerConfig,
-    SENSITIVE_ENV_VAR_NAMES,
-    _SENSITIVE_FIELD_NAMES,
     load_core_settings,
 )
+from pydantic import AliasChoices, Field
+from pydantic_settings import SettingsConfigDict
 
 # Use standard logging for settings module to avoid circular imports
 logger = logging.getLogger(__name__)

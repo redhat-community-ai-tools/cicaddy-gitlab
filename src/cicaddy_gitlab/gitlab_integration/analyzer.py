@@ -3,9 +3,9 @@
 import subprocess  # nosec B404
 from typing import Any, Dict, Optional, Union
 
-import gitlab
-
 from cicaddy.utils.logger import get_logger
+
+import gitlab
 
 logger = get_logger(__name__)
 
