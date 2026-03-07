@@ -1,0 +1,264 @@
+---
+# GitLab AI Agent Template
+#
+# This template provides AI-powered code analysis for merge requests with multi-provider
+# AI support. While MCP tools are available, they're primarily designed for scheduled
+# system monitoring tasks (see ai_cron_template.yml for MCP-focused usage).
+#
+# Features:
+# - Multi-provider AI support (Gemini, OpenAI, Claude)
+# - Code review and security analysis on merge requests
+# - Optional MCP server integration for specialized analysis tools
+# - Slack notifications with markdown formatting
+#
+# TIMEOUT CONFIGURATION:
+# MCP tools support dual timeout strategy for robust handling of long-running operations:
+# - Total Timeout (max_tool_timeout): Absolute maximum execution time per tool (default: 300s)
+# - Idle Timeout (idle_timeout): Time between progress updates/data chunks (default: 60s)
+#
+# Usage:
+#
+# 1. Include this template in your .gitlab-ci.yml using include: remote:
+#    include:
+#      - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_agent_template.yml'
+#
+# 2. Customize the job by overriding variables:
+#
+# SIMPLE SETUP (Recommended for most users):
+# ai_code_review:
+#   extends: .ai_agent_template
+#   variables:
+#     AI_PROVIDER: "gemini"  # or "openai", "claude"
+#     GEMINI_API_KEY: $GEMINI_API_KEY
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#
+# CLAUDE SETUP (Anthropic Claude models):
+# ai_code_review_claude:
+#   extends: .ai_agent_template
+#   variables:
+#     AI_PROVIDER: "claude"
+#     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
+#     AI_MODEL: "claude-3-5-sonnet-latest"
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#
+# ADVANCED SETUP (With optional MCP tools for specialized analysis):
+# ai_comprehensive_review:
+#   extends: .ai_agent_template
+#   variables:
+#     AI_PROVIDER: "openai"
+#     OPENAI_API_KEY: $OPENAI_API_KEY
+#     AI_MODEL: "gpt-4o"
+#     AGENT_TASKS: "code_review,security_scan"
+#     MCP_SERVERS_CONFIG: >-
+#       [{"name": "Context7", "protocol": "http", "endpoint": "https://mcp.context7.com/mcp",
+#       "headers": {"CONTEXT7_API_KEY": "$CONTEXT7_API_KEY"}, "timeout": 300, "idle_timeout": 60}]
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#
+# DSPY TASK FILE SETUP (Declarative YAML prompts - recommended for complex tasks):
+# ai_code_review_dspy:
+#   extends: .ai_agent_template
+#   variables:
+#     AI_PROVIDER: "gemini"
+#     GEMINI_API_KEY: $GEMINI_API_KEY
+#     AI_TASK_FILE: ".gitlab/prompts/mr_code_review.yml"
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#
+# BRANCH REVIEW SETUP (Analyzes branch changes against target branch):
+# ai_branch_review:
+#   extends: .ai_agent_template
+#   variables:
+#     AGENT_TYPE: "branch_review"
+#     AI_PROVIDER: "gemini"
+#     GEMINI_API_KEY: $GEMINI_API_KEY
+#     BRANCH_REVIEW_TARGET_BRANCH: "main"
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+#       variables:
+#         GIT_STRATEGY: clone
+#         GIT_DEPTH: 0
+
+.ai_agent_template:
+  variables:
+    # AI Provider Configuration with Gemini as default
+    AI_PROVIDER: "gemini"
+    AI_MODEL: "gemini-3-flash-preview"
+
+    # MCP Servers Configuration (JSON format)
+    MCP_SERVERS_CONFIG: "[]"
+
+    # Slack Configuration
+    SLACK_WEBHOOK_URL: ""
+
+    # Error Handling Configuration
+    AI_PROVIDER_RETRY_ATTEMPTS: "2"
+    AI_PROVIDER_RETRY_DELAY_SECONDS: "30"
+
+    # Agent Mode Configuration
+    AGENT_MODE: "merge_request"
+    MR_MODE: "true"
+
+    # Agent Configuration
+    AGENT_TASKS: "code_review"
+    AI_TASK_FILE: ""
+    AI_TASK_PROMPT: |
+      You are an expert code reviewer. Perform comprehensive analysis:
+      1. **Summary**: Briefly summarize the changes
+      2. **Issues**: Identify bugs, logic errors, security vulnerabilities
+      3. **Recommendations**: Suggest concrete fixes and improvements
+      4. **Code Quality**: Assess readability, maintainability, best practices
+
+      Focus on substantive issues. Use markdown format with code suggestions.
+
+    # Iterative execution configuration
+    MAX_INFER_ITERS: "10"
+
+    # Recovery mechanism configuration
+    RECOVERY_ENABLED: "false"
+
+    # Git Configuration
+    GIT_DIFF_CONTEXT_LINES: "10"
+    GIT_WORKING_DIRECTORY: ".."
+
+    # Logging Configuration
+    LOG_LEVEL: "INFO"
+    JSON_LOGS: "false"
+
+    # Kubernetes Resource Configuration
+    KUBERNETES_CPU_REQUEST: "1"
+    KUBERNETES_CPU_LIMIT: "2"
+    KUBERNETES_MEMORY_REQUEST: "2Gi"
+    KUBERNETES_MEMORY_LIMIT: "4Gi"
+
+  stage: agent_code_review
+  image: python:3.12-slim
+
+  before_script:
+    # Install system dependencies
+    - apt-get update && apt-get install -y --no-install-recommends git curl jq nodejs npm
+    - git config --global user.email "ci-agent@example.com"
+    - git config --global user.name "CI AI Agent"
+
+    # Fix git ownership issues in GitLab CI
+    - git config --global --add safe.directory '/builds/*'
+
+    # Install cicaddy-gitlab from PyPI
+    - pip install --upgrade pip
+    - pip install cicaddy-gitlab
+
+  script:
+    - |
+      # Fetch git data and run agent with error handling
+      if [ -n "$CI_MERGE_REQUEST_IID" ]; then
+        echo "Analyzing merge request $CI_MERGE_REQUEST_IID";
+        git fetch origin $CI_DEFAULT_BRANCH;
+      else
+        echo "No merge request - running in test mode";
+      fi
+
+      # AI Provider Configuration Validation
+      echo "=== AI Provider Configuration Check ==="
+      echo "AI_PROVIDER: ${AI_PROVIDER:-not_set}"
+
+      if [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
+        if [ -z "$ANTHROPIC_API_KEY" ]; then
+          echo "ERROR: AI_PROVIDER='$AI_PROVIDER' requires ANTHROPIC_API_KEY to be set"
+          exit 3
+        fi
+        echo "Claude provider configured with API key"
+      elif [ "$AI_PROVIDER" = "gemini" ]; then
+        if [ -z "$GEMINI_API_KEY" ]; then
+          echo "ERROR: AI_PROVIDER='gemini' requires GEMINI_API_KEY to be set"
+          exit 3
+        fi
+        echo "Gemini provider configured with API key"
+      elif [ "$AI_PROVIDER" = "openai" ]; then
+        if [ -z "$OPENAI_API_KEY" ]; then
+          echo "ERROR: AI_PROVIDER='openai' requires OPENAI_API_KEY to be set"
+          exit 3
+        fi
+        echo "OpenAI provider configured with API key"
+      else
+        echo "WARNING: Unknown AI_PROVIDER='$AI_PROVIDER', will attempt to auto-detect"
+      fi
+      echo ""
+
+      # Set MR mode environment
+      export AGENT_MODE="merge_request"
+      export MR_MODE="true"
+      export MR_START_TIME=$(date -Iseconds)
+      export CI_MERGE_REQUEST_IID="${CI_MERGE_REQUEST_IID}"
+
+      echo "=== Agent Mode Configuration Check ==="
+      echo "AGENT_MODE: ${AGENT_MODE:-not_set}"
+      echo "CI_MERGE_REQUEST_IID: ${CI_MERGE_REQUEST_IID:-not_set}"
+      echo ""
+
+      # Run AI Agent with error handling and retry logic
+      ATTEMPT=1
+      MAX_ATTEMPTS=${AI_PROVIDER_RETRY_ATTEMPTS:-2}
+
+      while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+        echo "Attempt $ATTEMPT of $MAX_ATTEMPTS: Running AI Agent..."
+
+        AGENT_MODE="$AGENT_MODE" \
+        MR_MODE="$MR_MODE" \
+        MR_START_TIME="$MR_START_TIME" \
+        CI_MERGE_REQUEST_IID="$CI_MERGE_REQUEST_IID" \
+        cicaddy run
+        EXIT_CODE=$?
+
+        case $EXIT_CODE in
+          0)
+            echo "AI Agent completed successfully"
+            exit 0
+            ;;
+          2)
+            echo "AI provider service temporarily unavailable (exit code 2)"
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              RETRY_DELAY=${AI_PROVIDER_RETRY_DELAY_SECONDS:-30}
+              echo "Retrying in ${RETRY_DELAY} seconds... (attempt $((ATTEMPT + 1)) of $MAX_ATTEMPTS)"
+              sleep $RETRY_DELAY
+            else
+              echo "All retry attempts exhausted for AI provider service failure"
+              exit 2
+            fi
+            ;;
+          3)
+            echo "AI provider configuration error (exit code 3) - not retryable"
+            exit 3
+            ;;
+          *)
+            echo "General application failure (exit code $EXIT_CODE)"
+            exit $EXIT_CODE
+            ;;
+        esac
+
+        ATTEMPT=$((ATTEMPT + 1))
+      done
+
+  rules:
+    # Run on merge request events by default
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        GIT_STRATEGY: clone
+        GIT_DEPTH: 0
+
+    # Allow manual runs for testing
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+
+  artifacts:
+    when: always
+    expire_in: 1 week
+    reports:
+    paths:
+      - "*.log"
+      - "*.json"
+      - "*.html"
+
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure

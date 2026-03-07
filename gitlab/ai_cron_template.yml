@@ -1,0 +1,296 @@
+---
+# GitLab AI Agent Cron Template
+#
+# This template enables scheduled AI agent jobs with MCP (Model Context Protocol) tools
+# that run independently of code changes. MCP tools provide external capabilities for:
+# - System monitoring and daily reports
+# - Security audits and vulnerability scanning
+# - Performance metrics collection and analysis
+# - Dependency health checks and license audits
+# - Custom business logic and data analysis
+#
+# Unlike merge request analysis, these scheduled jobs leverage MCP servers to interact
+# with external systems, databases, and monitoring tools for comprehensive reporting.
+#
+# TIMEOUT CONFIGURATION:
+# MCP tools support dual timeout strategy for robust handling of long-running operations:
+# - Total Timeout (max_tool_timeout): Absolute maximum execution time per tool (default: 300s)
+# - Idle Timeout (idle_timeout): Time between progress updates/data chunks (default: 60s)
+#
+# For tools with progress notifications (e.g., data processing, analysis):
+# - Set "idle_timeout" in MCP server config to allow time between progress updates
+# - Tool can run longer than idle_timeout as long as it reports progress
+# - Recommended: idle_timeout = 60s for active progress reporting
+#
+# IMPORTANT: MCP_SERVERS_CONFIG uses JSON format for GitLab CI compatibility.
+# Use YAML folded scalar (>-) for long JSON lines or single-line JSON strings.
+# The agent supports both YAML and JSON formats but JSON is recommended for CI.
+#
+# COMMON ERRORS TO AVOID:
+# - Do NOT override 'script' in your job unless absolutely necessary
+# - If you must override script, use array format: script: ["cmd1", "cmd2"]
+# - NOT: script: "single string" or script: {nested: [...]}
+#
+# Usage:
+#
+# 1. Include this template in your .gitlab-ci.yml using include: remote:
+#    include:
+#      - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
+#
+# 2. Create your scheduled job:
+#
+# SIMPLE SETUP (Recommended):
+# daily_analysis:
+#   extends: .ai_cron_template
+#   variables:
+#     AI_PROVIDER: "gemini"  # or "openai", "claude"
+#     GEMINI_API_KEY: $GEMINI_API_KEY
+#     MCP_SERVERS_CONFIG: >-
+#       [{"name": "my-mcp-server", "protocol": "http",
+#         "endpoint": "https://my-mcp-server.example.com/mcp",
+#         "timeout": 300, "idle_timeout": 60}]
+#     AI_TASK_PROMPT: |
+#       Use MCP tools to analyze system data and generate a report.
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#
+# CLAUDE SETUP (Anthropic Claude models):
+# daily_analysis_claude:
+#   extends: .ai_cron_template
+#   variables:
+#     AI_PROVIDER: "claude"
+#     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
+#     AI_MODEL: "claude-3-5-sonnet-latest"
+#     MCP_SERVERS_CONFIG: "[]"
+#     AI_TASK_PROMPT: |
+#       Perform analysis without external tools.
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#
+# DSPY TASK FILE SETUP (Declarative YAML prompts - recommended for structured analysis):
+# daily_analysis_dspy:
+#   extends: .ai_cron_template
+#   variables:
+#     AI_PROVIDER: "gemini"
+#     GEMINI_API_KEY: $GEMINI_API_KEY
+#     AI_TASK_FILE: "../.gitlab/prompts/my_analysis.yml"
+#     MCP_SERVERS_CONFIG: >-
+#       [{"name": "my-server", "protocol": "http",
+#         "endpoint": "https://my-mcp.example.com/mcp",
+#         "timeout": 600, "idle_timeout": 300}]
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#
+# GENERIC ANALYSIS SETUP (Without MCP tools):
+# generic_code_analysis:
+#   extends: .ai_cron_template
+#   variables:
+#     AI_PROVIDER: "gemini"
+#     GEMINI_API_KEY: $GEMINI_API_KEY
+#     TASK_SCOPE: "full_project"
+#     MCP_SERVERS_CONFIG: "[]"
+#     AI_TASK_PROMPT: |
+#       Perform generic code analysis without external tools.
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+
+.ai_cron_template:
+  variables:
+    # Task-specific configuration
+    TASK_TYPE: "custom"  # security_audit, quality_report, dependency_check, custom
+    TASK_SCOPE: "external_tools"         # full_project, main_branch, recent_changes, external_tools
+    TASK_REPORT_FORMAT: "detailed"       # summary, detailed, metrics_only
+
+    # Override MR-specific behavior
+    CI_MERGE_REQUEST_IID: ""  # Disable MR mode for cron jobs
+
+    # AI configuration with Gemini as default provider
+    AI_PROVIDER: "gemini"
+    AI_MODEL: "gemini-3-flash-preview"
+
+    # MCP servers configuration for scheduled analysis
+    # Default: empty - set your own MCP servers
+    MCP_SERVERS_CONFIG: "[]"
+
+    # DSPy Task File (takes precedence over AI_TASK_PROMPT when set)
+    AI_TASK_FILE: ""
+    # Default AI task prompt - override with your own
+    AI_TASK_PROMPT: |
+      Analyze the system using available MCP tools and generate a comprehensive report
+      with executive summary, detailed statistics, and prioritized recommendations.
+
+    # Slack notification configuration
+    SLACK_WEBHOOK_URL: ""
+
+    # Error Handling Configuration
+    AI_PROVIDER_RETRY_ATTEMPTS: "3"
+    AI_PROVIDER_RETRY_DELAY_SECONDS: "60"
+
+    # Iterative execution configuration
+    MAX_INFER_ITERS: "15"
+
+    # Execution time limit configuration
+    MAX_EXECUTION_TIME: "${MAX_EXECUTION_TIME:-600}"
+
+    # Context budget configuration
+    CONTEXT_SAFETY_FACTOR: "${CONTEXT_SAFETY_FACTOR:-0.75}"
+
+    # Recovery mechanism configuration (Early Break Recovery)
+    RECOVERY_ENABLED: "true"
+
+    # Extended timeouts for thorough analysis
+    GIT_DEPTH: 0
+
+    # Logging for scheduled jobs
+    LOG_LEVEL: "INFO"
+    JSON_LOGS: "true"
+
+    # Kubernetes Resource Configuration
+    KUBERNETES_CPU_REQUEST: "1"
+    KUBERNETES_CPU_LIMIT: "2"
+    KUBERNETES_MEMORY_REQUEST: "2Gi"
+    KUBERNETES_MEMORY_LIMIT: "4Gi"
+
+  stage: analysis
+  image: python:3.12-slim
+
+  before_script:
+    # Install system dependencies
+    - apt-get update && apt-get install -y --no-install-recommends git curl jq
+    - git config --global user.email "ci-agent@example.com"
+    - git config --global user.name "CI AI Agent"
+
+    # Fix git ownership issues in GitLab CI
+    - git config --global --add safe.directory '/builds/*'
+
+    # Install cicaddy-gitlab from PyPI
+    - pip install --upgrade pip
+    - pip install cicaddy-gitlab
+
+  script:
+    - |
+      # Set cron mode environment
+      export CRON_MODE="true"
+      export CRON_START_TIME=$(date -Iseconds)
+      echo "Starting scheduled AI agent analysis - Task: $TASK_TYPE"
+
+      # Ensure we're on the default branch for full analysis
+      git checkout $CI_DEFAULT_BRANCH || git checkout main || git checkout master
+
+      # Debug: Check MCP configuration (safe - no sensitive data exposed)
+      echo "MCP_SERVERS_CONFIG is set: $(if [ -n "$MCP_SERVERS_CONFIG" ]; then echo YES; else echo NO; fi)"
+
+      if [ -z "$MCP_SERVERS_CONFIG" ]; then
+        echo "MCP_SERVERS_CONFIG is unset/empty, defaulting to empty array"
+        export MCP_SERVERS_CONFIG="[]"
+      elif [ "$MCP_SERVERS_CONFIG" = "[]" ]; then
+        echo "MCP_SERVERS_CONFIG explicitly set to empty array - using generic AI analysis without MCP tools"
+      else
+        echo "MCP_SERVERS_CONFIG provided by user"
+        echo "Configured $(echo "$MCP_SERVERS_CONFIG" | jq length 2>/dev/null || echo "?") MCP servers"
+      fi
+
+      # AI Provider Configuration Validation
+      echo "=== AI Provider Configuration Check ==="
+      echo "AI_PROVIDER: ${AI_PROVIDER:-not_set}"
+
+      if [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
+        if [ -z "$ANTHROPIC_API_KEY" ]; then
+          echo "ERROR: AI_PROVIDER='$AI_PROVIDER' requires ANTHROPIC_API_KEY to be set"
+          exit 3
+        fi
+        echo "Claude provider configured with API key"
+      elif [ "$AI_PROVIDER" = "gemini" ]; then
+        if [ -z "$GEMINI_API_KEY" ]; then
+          echo "ERROR: AI_PROVIDER='gemini' requires GEMINI_API_KEY to be set"
+          exit 3
+        fi
+        echo "Gemini provider configured with API key"
+      elif [ "$AI_PROVIDER" = "openai" ]; then
+        if [ -z "$OPENAI_API_KEY" ]; then
+          echo "ERROR: AI_PROVIDER='openai' requires OPENAI_API_KEY to be set"
+          exit 3
+        fi
+        echo "OpenAI provider configured with API key"
+      else
+        echo "WARNING: Unknown AI_PROVIDER='$AI_PROVIDER', will attempt to auto-detect"
+      fi
+      echo ""
+
+      # Run the cron-enabled AI agent with error handling and retry logic
+      ATTEMPT=1
+      MAX_ATTEMPTS=${AI_PROVIDER_RETRY_ATTEMPTS:-3}
+
+      while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+        echo "Attempt $ATTEMPT of $MAX_ATTEMPTS: Running AI Cron Agent..."
+
+        CRON_MODE="$CRON_MODE" \
+        CRON_START_TIME="$CRON_START_TIME" \
+        MCP_SERVERS_CONFIG="$MCP_SERVERS_CONFIG" \
+        cicaddy run
+        EXIT_CODE=$?
+
+        case $EXIT_CODE in
+          0)
+            echo "AI Cron Agent completed successfully"
+            exit 0
+            ;;
+          2)
+            echo "AI provider service temporarily unavailable (exit code 2)"
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              RETRY_DELAY=${AI_PROVIDER_RETRY_DELAY_SECONDS:-60}
+              echo "Retrying in ${RETRY_DELAY} seconds... (attempt $((ATTEMPT + 1)) of $MAX_ATTEMPTS)"
+              sleep $RETRY_DELAY
+            else
+              echo "All retry attempts exhausted for AI provider service failure"
+              exit 2
+            fi
+            ;;
+          3)
+            echo "AI provider configuration error (exit code 3) - not retryable"
+            exit 3
+            ;;
+          *)
+            echo "General application failure (exit code $EXIT_CODE)"
+            exit $EXIT_CODE
+            ;;
+        esac
+
+        ATTEMPT=$((ATTEMPT + 1))
+      done
+
+
+  rules:
+    # Default: run on scheduled pipelines
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      variables:
+        GIT_STRATEGY: clone
+
+    # Allow manual execution for testing
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+      variables:
+        TASK_TYPE: "test_run"
+
+  artifacts:
+    when: always
+    expire_in: 1 month
+    reports:
+    paths:
+      - "*.json"
+      - "*.html"
+      - "*.jsonl"
+      - "*.log"
+
+  # Extended timeout for comprehensive analysis
+  timeout: 2h
+
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure

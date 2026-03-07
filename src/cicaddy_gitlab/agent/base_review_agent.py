@@ -1,0 +1,135 @@
+"""BaseReviewAgent with GitLab platform integration.
+
+This class mirrors cicaddy's BaseReviewAgent interface but inherits from
+cicaddy_gitlab's BaseAIAgent instead of cicaddy's BaseAIAgent. This is
+required because cicaddy's BaseAIAgent has a no-op _setup_platform_integration(),
+while cicaddy_gitlab's BaseAIAgent overrides it to initialize the GitLabAnalyzer
+for posting MR comments and accessing the GitLab API.
+
+MRO: MergeRequestAgent -> BaseReviewAgent (this) -> BaseAIAgent (cicaddy_gitlab)
+     -> BaseAIAgent (cicaddy) -> ABC
+"""
+
+from typing import Any, Dict, Optional
+
+from cicaddy.config.settings import Settings
+from cicaddy.git.diff_analyzer import DiffAnalyzer
+from cicaddy.utils.logger import get_logger
+
+from cicaddy_gitlab.agent.base import BaseAIAgent
+
+logger = get_logger(__name__)
+
+
+class BaseReviewAgent(BaseAIAgent):
+    """Base class for code review agents with GitLab platform integration.
+
+    Inherits from cicaddy_gitlab.agent.base.BaseAIAgent to get GitLabAnalyzer
+    initialization via _setup_platform_integration(). MergeRequestAgent extends
+    this class to gain both diff analysis and GitLab API capabilities.
+    """
+
+    def __init__(self, settings: Optional[Settings] = None):
+        super().__init__(settings)
+        self.diff_analyzer: Optional[DiffAnalyzer] = None
+
+    async def initialize(self):
+        """Initialize the review agent with diff analyzer."""
+        await super().initialize()
+
+        # Initialize diff analyzer with git working directory
+        working_dir = getattr(self.settings, "git_working_directory", None)
+        self.diff_analyzer = DiffAnalyzer(working_directory=working_dir)
+
+        logger.info(
+            "Review agent initialized",
+            diff_analyzer_available=self.diff_analyzer is not None,
+            git_working_directory=working_dir,
+        )
+
+    async def get_analysis_context(self) -> Dict[str, Any]:
+        """Gather analysis context including diff and review-specific information."""
+        if not self.diff_analyzer:
+            raise ValueError("Diff analyzer not initialized - call initialize() first")
+
+        logger.info("Gathering analysis context for review")
+
+        # Get diff content
+        try:
+            diff_content = await self.get_diff_content()
+        except Exception as e:
+            logger.error(f"Failed to get diff content: {e}")
+            diff_content = f"Error retrieving diff: {str(e)}"
+
+        # Get review-specific context
+        try:
+            review_context = await self.get_review_context()
+        except Exception as e:
+            logger.error(f"Failed to get review context: {e}")
+            review_context = {"error": f"Failed to get review context: {str(e)}"}
+
+        # Get project information if GitLab analyzer is available
+        project_info = {}
+        if self.platform_analyzer:
+            try:
+                project_info = await self.platform_analyzer.get_project_info()
+            except Exception as e:
+                logger.warning(f"Could not get project info: {e}")
+                project_info = {"name": "Unknown Project", "error": str(e)}
+
+        # Combine all context
+        context = {
+            "project": project_info,
+            "diff": diff_content,
+            "platform_available": self.platform_analyzer is not None,
+            "timestamp": self.start_time.isoformat(),
+            "diff_lines": len(diff_content.splitlines()) if diff_content else 0,
+            **review_context,
+        }
+
+        logger.info(
+            "Analysis context gathered",
+            diff_lines=context["diff_lines"],
+            analysis_type=context.get("analysis_type", "unknown"),
+            platform_available=context["platform_available"],
+        )
+
+        return context
+
+    async def get_diff_summary(self) -> Dict[str, Any]:
+        """Generate a summary of the diff changes."""
+        try:
+            diff_content = await self.get_diff_content()
+
+            lines = diff_content.splitlines()
+            added_lines = len([line for line in lines if line.startswith("+")])
+            removed_lines = len([line for line in lines if line.startswith("-")])
+            modified_files = len(
+                [line for line in lines if line.startswith("diff --git")]
+            )
+
+            return {
+                "total_lines": len(lines),
+                "added_lines": added_lines,
+                "removed_lines": removed_lines,
+                "modified_files": modified_files,
+                "has_changes": len(lines) > 0,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to generate diff summary: {e}")
+            return {
+                "total_lines": 0,
+                "added_lines": 0,
+                "removed_lines": 0,
+                "modified_files": 0,
+                "has_changes": False,
+                "error": str(e),
+            }
+
+    def _validate_initialized(self):
+        """Validate that the agent is properly initialized."""
+        if not self.diff_analyzer:
+            raise ValueError(
+                "Review agent not properly initialized - diff analyzer missing"
+            )

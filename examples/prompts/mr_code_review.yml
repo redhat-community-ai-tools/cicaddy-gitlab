@@ -1,0 +1,114 @@
+# Merge Request Code Review Task
+# This task performs comprehensive code review on merge requests
+
+name: mr_code_review
+description: Perform comprehensive code review on merge request changes
+type: code_review
+version: "1.0"
+author: "cicaddy-gitlab"
+
+inputs:
+  - name: mr_title
+    description: Merge request title
+    required: true
+
+  - name: mr_description
+    description: Merge request description
+    required: false
+
+  - name: mr_author
+    description: Author of the merge request
+    required: false
+
+  - name: target_branch
+    description: Target branch for the merge
+    required: false
+
+  - name: source_branch
+    description: Source branch being merged
+    required: false
+
+  - name: diff_content
+    description: The code diff to review
+    required: true
+    format: diff
+
+  - name: enabled_tasks
+    description: List of enabled analysis tasks
+    required: false
+
+  - name: review_focus
+    env_var: ANALYSIS_FOCUS
+    default: "general"
+    description: Focus area for review (security, performance, maintainability, general)
+    required: false
+
+outputs:
+  - name: summary
+    description: Brief summary of the changes and overall assessment
+    required: true
+    format: paragraph
+
+  - name: issues
+    description: List of identified issues, bugs, or concerns
+    required: true
+    format: list
+
+  - name: security_concerns
+    description: Security vulnerabilities or risks identified
+    required: false
+    format: list
+
+  - name: recommendations
+    description: Actionable recommendations for improvement
+    required: true
+    format: list
+
+  - name: code_quality
+    description: Assessment of code quality, readability, and maintainability
+    required: false
+    format: paragraph
+
+tools:
+  servers: []
+  required_tools: []
+  forbidden_tools: []
+
+constraints:
+  - Focus on actionable feedback that improves code quality
+  - Prioritize issues by severity (Critical > High > Medium > Low)
+  - Provide specific line references when identifying issues
+  - Suggest concrete fixes, not just identify problems
+  - Consider the context and purpose of the changes
+  - Avoid nitpicking style issues unless they impact readability
+  - Be constructive and respectful in feedback
+  - Check for common security vulnerabilities (injection, auth, data exposure)
+  - Verify error handling and edge cases
+  - Assess test coverage implications
+
+reasoning: chain_of_thought
+output_format: markdown
+
+context: |
+  You are reviewing a merge request for a software project. Your goal is to:
+  1. Understand the purpose and scope of the changes
+  2. Identify bugs, security issues, and potential problems
+  3. Suggest improvements for code quality and maintainability
+  4. Provide actionable, specific feedback
+
+  The review should be thorough but respectful, focusing on helping the author
+  improve their code rather than criticizing.
+
+examples:
+  - input: "Review a PR that adds user authentication"
+    output: |
+      ## Summary
+      This MR adds JWT-based authentication to the API endpoints...
+
+      ## Issues
+      1. **Critical**: Password is stored in plain text (auth.py:45)
+      2. **High**: JWT token has no expiration set (token.py:23)
+
+      ## Recommendations
+      1. Use bcrypt or argon2 for password hashing
+      2. Set JWT expiration to 24 hours maximum

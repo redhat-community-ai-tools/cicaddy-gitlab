@@ -1,0 +1,67 @@
+# Branch Review Task (DSPy Format)
+# Used by branch review jobs to analyze branch changes against main
+
+name: branch_review
+description: Compare branch changes against main branch for deployment readiness
+type: code_review
+version: "1.0"
+
+inputs:
+  - name: diff_content
+    description: The code diff between branch and main
+    required: true
+    format: diff
+
+  - name: source_branch
+    description: The source branch being reviewed
+    required: false
+
+  - name: target_branch
+    description: The target branch (usually main)
+    required: false
+
+outputs:
+  - name: summary
+    description: Summary of differences between branch and main
+    required: true
+    format: paragraph
+
+  - name: impact_analysis
+    description: Assessment of potential impact of branch changes
+    required: true
+    format: paragraph
+
+  - name: security_review
+    description: Security implications of the changes
+    required: true
+    format: list
+
+  - name: quality_assessment
+    description: Code quality improvements or regressions
+    required: true
+    format: paragraph
+
+  - name: recommendations
+    description: Specific recommendations for the branch
+    required: true
+    format: list
+
+tools:
+  servers: []
+  required_tools: []
+  forbidden_tools: []
+
+constraints:
+  - Focus on branch-specific concerns and deployment readiness
+  - Assess backward compatibility implications
+  - Identify breaking changes that may affect production
+  - Consider integration impact with main branch
+  - Evaluate test coverage for changed code
+
+reasoning: chain_of_thought
+output_format: markdown
+
+context: |
+  You are performing a branch to main branch code review analysis.
+  Compare the current branch changes against the main branch and evaluate
+  deployment readiness, potential risks, and code quality.
