@@ -156,9 +156,9 @@ pip install -e ".[dev]"
 # Run tests
 pytest
 
-# Format code
-black src/ tests/
-isort src/ tests/
+# Lint and format
+ruff check --fix src/ tests/
+ruff format src/ tests/
 ```
 
 ## License
