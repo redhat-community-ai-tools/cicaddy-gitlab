@@ -110,6 +110,7 @@ Additional cron-specific variables:
 | `MAX_INFER_ITERS` | `30` | Higher default for complex analysis |
 | `MAX_EXECUTION_TIME` | `600` | Seconds (range: 60–7200) |
 | `RECOVERY_ENABLED` | `true` | Early break recovery for long runs |
+| `CONTEXT_SAFETY_FACTOR` | `0.75` | Token budget safety factor (range: 0.5–0.97) |
 | `JSON_LOGS` | `true` | Structured logging for scheduled jobs |
 
 Rules: runs on `schedule` by default, manual on `web` trigger. Timeout: 2h.
@@ -124,6 +125,7 @@ The plugin reads standard GitLab CI variables automatically:
 |----------|--------|-------------|
 | `GITLAB_TOKEN` | User-set | GitLab API token (enhanced permissions) |
 | `CI_JOB_TOKEN` | GitLab CI | Fallback token (auto-provided in CI) |
+| `GITLAB_API_URL` | User-set | Manual override for GitLab API endpoint |
 | `CI_API_V4_URL` | GitLab CI | API base URL (auto-constructed from `CI_SERVER_URL`) |
 | `CI_PROJECT_ID` | GitLab CI | Project ID (or extracted from `CI_PROJECT_URL`) |
 | `CI_PROJECT_URL` | User-set | GitLab project URL (fallback for project ID) |
@@ -201,6 +203,15 @@ inputs:
   - name: review_focus
     env_var: ANALYSIS_FOCUS
     default: "general"
+
+outputs:
+  - name: summary
+    required: true
+    format: paragraph
+  - name: issues
+    required: true
+    format: list
+  # ... see examples/prompts/ for full file with tools, context, examples
 
 constraints:
   - Prioritize issues by severity (Critical > High > Medium > Low)
