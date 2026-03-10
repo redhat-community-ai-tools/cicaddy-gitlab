@@ -110,7 +110,7 @@ custom_analysis:
 | `AI_TASK_FILE` | (empty) | Path to DSPy task YAML file |
 | `AI_TASK_PROMPT` | (built-in) | Inline task prompt |
 | `SLACK_WEBHOOK_URL` | (empty) | Slack webhook for notifications |
-| `MAX_INFER_ITERS` | `10`/`15` | Max AI inference iterations |
+| `MAX_INFER_ITERS` | `15` | Max AI inference iterations (agent: 15, cron: 30) |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ### Agent Template Variables

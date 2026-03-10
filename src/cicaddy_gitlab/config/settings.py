@@ -291,9 +291,9 @@ def load_settings() -> Settings:
         except ValueError:
             logger.warning(
                 f"Invalid MAX_INFER_ITERS value '{max_infer_iters_str}' - "
-                "must be a positive integer. Using default value 10."
+                "must be a positive integer. Using default value 15."
             )
-            env_data["max_infer_iters"] = 10
+            env_data["max_infer_iters"] = 15
 
     # Execution time limits
     # Handle MAX_EXECUTION_TIME - check for empty string and invalid values

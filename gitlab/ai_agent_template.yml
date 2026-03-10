@@ -111,7 +111,7 @@
       Focus on substantive issues. Use markdown format with code suggestions.
 
     # Iterative execution configuration
-    MAX_INFER_ITERS: "10"
+    MAX_INFER_ITERS: "15"
 
     # Recovery mechanism configuration
     RECOVERY_ENABLED: "false"

@@ -131,7 +131,7 @@
     AI_PROVIDER_RETRY_DELAY_SECONDS: "60"
 
     # Iterative execution configuration
-    MAX_INFER_ITERS: "15"
+    MAX_INFER_ITERS: "30"
 
     # Execution time limit configuration
     MAX_EXECUTION_TIME: "${MAX_EXECUTION_TIME:-600}"
