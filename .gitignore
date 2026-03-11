@@ -32,5 +32,9 @@ htmlcov/
 *.tar.gz
 *.whl
 
+# Environment
+.env
+.env.*
+
 # Logs
 *.log
