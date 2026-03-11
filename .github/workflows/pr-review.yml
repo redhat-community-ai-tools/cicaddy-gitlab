@@ -1,0 +1,26 @@
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: redhat-community-ai-tools/cicaddy-action@v0.3.0
+        with:
+          ai_provider: gemini
+          ai_model: gemini-2.5-flash
+          ai_api_key: ${{ secrets.AI_API_KEY }}
+          task_file: .github/tasks/pr_review.yml
+          mcp_servers_config: '[{"name":"context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${{ secrets.CONTEXT7_API_KEY }}"},"timeout":300,"idle_timeout":60}]'
+          post_pr_comment: 'true'

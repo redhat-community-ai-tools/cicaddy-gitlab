@@ -60,7 +60,10 @@ AI_PROVIDER=gemini
 GEMINI_API_KEY=your-key-here
 
 AI_TASK_PROMPT='Use MCP tools to analyze system data and generate a report.'
-MCP_SERVERS_CONFIG='[{"name":"context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","timeout":300,"idle_timeout":60}]'
+
+# Context7 API Key
+CONTEXT7_API_KEY=your-context7-api-key-here
+MCP_SERVERS_CONFIG='[{"name":"context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"},"timeout":300,"idle_timeout":60}]'
 
 LOG_LEVEL=DEBUG
 ```
@@ -146,7 +149,7 @@ MCP_SERVERS_CONFIG='[{"name":"sourcebot","protocol":"stdio","command":"npx","arg
 ### Multiple Servers
 
 ```bash
-MCP_SERVERS_CONFIG='[{"name":"context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","timeout":300},{"name":"devlake","protocol":"http","endpoint":"https://devlake.example.com/mcp","timeout":600}]'
+MCP_SERVERS_CONFIG='[{"name":"context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"},"timeout":300},{"name":"devlake","protocol":"http","endpoint":"https://devlake.example.com/mcp","timeout":600}]'
 ```
 
 ### No MCP Servers
