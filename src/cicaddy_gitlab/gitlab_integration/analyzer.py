@@ -165,12 +165,37 @@ class GitLabAnalyzer:
             return ""
 
     async def post_merge_request_note(
-        self, mr_iid: str, content: str
+        self, mr_iid: str, content: str, note_marker: str | None = None
     ) -> Dict[str, Any]:
-        """Post a note to merge request."""
-        logger.info(f"Posting note to merge request {mr_iid}")
+        """Post or update a note on a merge request.
 
+        When *note_marker* is provided the method searches for an existing
+        note whose body starts with that marker.  If found, the previous
+        analysis is collapsed into a ``<details>`` block and the note is
+        updated in-place (similar to CodeRabbit / Qodo persistent review).
+        Otherwise a new note is created.
+
+        Args:
+            mr_iid: Merge request IID.
+            content: Note body text.
+            note_marker: Optional marker that identifies the bot note.
+        """
         mr = self._get_project().mergerequests.get(mr_iid)
+
+        if note_marker:
+            existing = self._find_bot_note(mr, note_marker)
+            if existing is not None:
+                updated = self._build_updated_body(existing.body, content)
+                existing.body = updated
+                existing.save()
+                logger.info(f"Updated existing note (id={existing.id}) in MR {mr_iid}")
+                return {
+                    "id": existing.id,
+                    "created_at": existing.created_at,
+                    "updated_at": getattr(existing, "updated_at", ""),
+                }
+
+        logger.info(f"Posting new note to merge request {mr_iid}")
         note = mr.notes.create({"body": content})
 
         return {
@@ -178,6 +203,113 @@ class GitLabAnalyzer:
             "created_at": note.created_at,
             "updated_at": note.updated_at,
         }
+
+    @staticmethod
+    def _find_bot_note(mr, marker: str):
+        """Return the most recent non-system note whose body starts with *marker*.
+
+        Fetches notes in descending order so the most recent bot note is
+        found first, and uses pagination to avoid fetching all notes on
+        MRs with long discussion histories.
+        """
+        page = 1
+        per_page = 50
+        while True:
+            notes = mr.notes.list(
+                page=page, per_page=per_page, order_by="created_at", sort="desc"
+            )
+            if not notes:
+                break
+            for note in notes:
+                if note.system:
+                    continue
+                if note.body and note.body.lstrip().startswith(marker):
+                    return note
+            if len(notes) < per_page:
+                break
+            page += 1
+        return None
+
+    # GitLab notes have a ~1MB limit; use a generous threshold that
+    # preserves more history while staying safely below the API limit.
+    MAX_NOTE_LENGTH = 250_000
+    # Reserve a buffer so the final result (new body + history overhead)
+    # stays comfortably under MAX_NOTE_LENGTH.
+    _HISTORY_OVERHEAD_BUFFER = 5_000
+
+    FOOTER_MARKER = "<!-- cicaddy-footer -->"
+
+    @classmethod
+    def _strip_footer(cls, body: str) -> str:
+        """Remove the trailing footer from a note body.
+
+        Looks for the unique ``<!-- cicaddy-footer -->`` marker to avoid
+        accidentally stripping markdown horizontal rules in AI output.
+        """
+        idx = body.rfind(cls.FOOTER_MARKER)
+        if idx != -1:
+            return body[:idx].rstrip()
+        return body.rstrip()
+
+    @classmethod
+    def _build_updated_body(cls, old_body: str, new_body: str) -> str:
+        """Prepend *new_body* and collapse the previous analysis.
+
+        Footers are stripped from old content to avoid duplication.
+        If the result exceeds the note length limit the oldest
+        history entries are dropped.
+        """
+        # Safety truncate: if new_body alone exceeds the limit (minus a
+        # buffer for history overhead), trim it to avoid a GitLab API 400.
+        safe_limit = cls.MAX_NOTE_LENGTH - cls._HISTORY_OVERHEAD_BUFFER
+        if len(new_body) > safe_limit:
+            truncation_suffix = (
+                "\n\n*[Analysis truncated to stay within note length limit]*"
+            )
+            new_body = (
+                new_body[: safe_limit - len(truncation_suffix)] + truncation_suffix
+            )
+            logger.warning("New analysis body truncated to stay within character limit")
+
+        history_tag = "\n<details>\n<summary><b>Previous analyses</b></summary>\n"
+
+        # Strip footer from old content before collapsing
+        old_content = cls._strip_footer(old_body)
+
+        if history_tag in old_content:
+            current_section, existing_history = old_content.split(history_tag, 1)
+            existing_history = existing_history.rstrip()
+            if existing_history.endswith("</details>"):
+                existing_history = existing_history[: -len("</details>")].rstrip()
+            collapsed = (
+                f"{history_tag}\n{current_section.strip()}\n\n"
+                f"{existing_history}\n\n</details>\n"
+            )
+        else:
+            collapsed = f"{history_tag}\n{old_content.strip()}\n\n</details>\n"
+
+        result = f"{new_body}\n{collapsed}"
+
+        # Truncate history if the note exceeds the length limit.
+        # Keep as much of the collapsed history as possible rather than
+        # dropping it entirely.
+        if len(result) > cls.MAX_NOTE_LENGTH:
+            truncation_notice = (
+                "\n\n*[Older history truncated to stay within note length limit]*"
+                "\n\n</details>\n"
+            )
+            # Account for the newline joining new_body and trimmed history
+            budget = cls.MAX_NOTE_LENGTH - len(new_body) - len(truncation_notice) - 1
+            if budget > 0:
+                # Keep the opening history tag and as much content as fits
+                trimmed = collapsed[:budget]
+                result = f"{new_body}\n{trimmed}{truncation_notice}"
+            else:
+                # New body alone is near the limit; drop history entirely
+                result = f"{new_body}\n\n*[History omitted — note length limit]*"
+            logger.warning("Note history truncated to stay within character limit")
+
+        return result
 
     async def get_merge_request_notes(self, mr_iid: str) -> list:
         """Get all notes from merge request."""
@@ -204,23 +336,49 @@ class GitLabAnalyzer:
 
         logger.info(f"Updated note {note_id} in MR {mr_iid}")
 
-    async def post_commit_note(self, commit_sha: str, content: str) -> Dict[str, Any]:
-        """Post a note to a specific commit."""
+    async def post_commit_note(
+        self, commit_sha: str, content: str, note_marker: str | None = None
+    ) -> Dict[str, Any]:
+        """Post or update a note on a specific commit.
+
+        When *note_marker* is provided the method searches existing commit
+        discussions for a note whose body starts with that marker.  If found,
+        the previous analysis is collapsed into a ``<details>`` block and the
+        note is updated in-place via the Discussions API.  Otherwise a new
+        comment is created.
+
+        Args:
+            commit_sha: Commit SHA to comment on.
+            content: Note body text.
+            note_marker: Optional marker that identifies the bot note.
+        """
         logger.info(f"Posting note to commit {commit_sha[:8]}...")
 
         try:
             project = self._get_project()
-            # Create commit comments using the repository commits comments manager
-            # Use lazy=True to avoid fetching the full commit object
             commit = project.commits.get(commit_sha, lazy=True)
+
+            # Try update-in-place via discussions API
+            if note_marker:
+                existing = self._find_bot_commit_note(commit, note_marker)
+                if existing is not None:
+                    discussion, note_obj = existing
+                    updated = self._build_updated_body(note_obj.body, content)
+                    note_obj.body = updated
+                    note_obj.save()
+                    logger.info(
+                        f"Updated existing commit note (id={note_obj.id}) "
+                        f"on {commit_sha[:8]}"
+                    )
+                    return {
+                        "id": note_obj.id,
+                        "created_at": getattr(note_obj, "created_at", "unknown"),
+                        "updated_at": getattr(note_obj, "updated_at", "unknown"),
+                        "commit_sha": commit_sha,
+                    }
+
+            # Create new comment
             note = commit.comments.create({"note": content})
-
-            # Debug logging to understand the commit comment object structure
-            logger.debug(f"Commit comment object type: {type(note)}")
-            logger.debug(
-                f"Commit comment attributes: {[attr for attr in dir(note) if not attr.startswith('_')]}"
-            )
-
             return {
                 "id": getattr(note, "id", None),
                 "created_at": getattr(note, "created_at", "unknown"),
@@ -230,6 +388,37 @@ class GitLabAnalyzer:
         except Exception as e:
             logger.error(f"Failed to post commit note: {e}")
             return {"error": str(e)}
+
+    @staticmethod
+    def _find_bot_commit_note(commit, marker: str):
+        """Find a bot note in commit discussions by marker.
+
+        Returns a (discussion, note) tuple if found, else None.
+        Uses the Discussions API which supports note editing via save().
+
+        Note: the commit discussions API returns discussions in default
+        (oldest-first) order and does not support ``sort``/``order_by``.
+        The bot assumes a single note per marker, so order doesn't matter.
+        """
+        page = 1
+        per_page = 50
+        while True:
+            discussions = commit.discussions.list(page=page, per_page=per_page)
+            if not discussions:
+                break
+            for discussion in discussions:
+                for note_data in discussion.attributes.get("notes", []):
+                    if note_data.get("system"):
+                        continue
+                    body = note_data.get("body", "")
+                    if body and body.lstrip().startswith(marker):
+                        # Get the saveable note object
+                        note_obj = discussion.notes.get(note_data["id"])
+                        return discussion, note_obj
+            if len(discussions) < per_page:
+                break
+            page += 1
+        return None
 
     async def get_commit_info(self, commit_sha: str) -> Dict[str, Any]:
         """Get commit information."""

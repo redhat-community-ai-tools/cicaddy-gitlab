@@ -12,6 +12,8 @@ from .base_review_agent import BaseReviewAgent
 
 logger = get_logger(__name__)
 
+BOT_NOTE_MARKER = "<!-- cicaddy-gitlab:mr-review -->"
+
 
 class MergeRequestAgent(BaseReviewAgent):
     """AI Agent specialized for merge request analysis and code review."""
@@ -250,9 +252,9 @@ Security Analysis Focus:
         # Format results for GitLab comment
         comment = self._format_gitlab_comment(report, analysis_result)
 
-        # Post to GitLab
+        # Post to GitLab (updates existing bot note in-place if found)
         await self.platform_analyzer.post_merge_request_note(
-            self.merge_request_iid, comment
+            self.merge_request_iid, comment, note_marker=BOT_NOTE_MARKER
         )
 
     def _extract_token_summary(self, analysis_result: Dict[str, Any]) -> str:
@@ -305,8 +307,13 @@ Security Analysis Focus:
     def _format_gitlab_comment(
         self, report: Dict[str, Any], analysis_result: Dict[str, Any]
     ) -> str:
-        """Format analysis results as GitLab comment."""
-        comment = "# 🤖 AI Agent Analysis\n\n"
+        """Format analysis results as GitLab comment.
+
+        The hidden marker is prepended so the bot can find and update its
+        own note later.  No heading is injected — the AI analysis output
+        already contains its own structure.
+        """
+        comment = f"{BOT_NOTE_MARKER}\n"
 
         if "ai_analysis" in analysis_result:
             # New execution engine format
@@ -335,7 +342,7 @@ Security Analysis Focus:
         if token_summary.strip():  # Ensure it's not empty or whitespace-only
             footer += f"  \n{token_summary}"
 
-        comment += f"\n---\n{footer}"
+        comment += f"\n<!-- cicaddy-footer -->\n---\n{footer}"
         return comment
 
     def get_session_id(self) -> str:

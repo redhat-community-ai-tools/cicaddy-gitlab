@@ -20,6 +20,8 @@ from cicaddy_gitlab.agent.base_review_agent import BaseReviewAgent
 
 logger = get_logger(__name__)
 
+BOT_NOTE_MARKER = "<!-- cicaddy-gitlab:branch-review -->"
+
 
 class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
     """BranchReviewAgent with GitLab platform integration.
@@ -56,7 +58,7 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         try:
             comment_content = self._format_gitlab_comment(report, analysis_result)
             result = await self.platform_analyzer.post_commit_note(
-                commit_sha, comment_content
+                commit_sha, comment_content, note_marker=BOT_NOTE_MARKER
             )
             logger.info(
                 f"Posted analysis comment to commit {commit_sha[:8]}, "
@@ -68,14 +70,19 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
     def _format_gitlab_comment(
         self, report: Dict[str, Any], analysis_result: Dict[str, Any]
     ) -> str:
-        """Format analysis results for GitLab commit comment."""
+        """Format analysis results for GitLab commit comment.
+
+        The hidden marker is prepended so the bot can find and update its
+        own note later.
+        """
         ai_analysis = analysis_result.get("ai_analysis", "No analysis available")
         status = analysis_result.get("status", "unknown")
         execution_time = analysis_result.get("execution_time", 0)
         project_name = report.get("project", "Unknown Project")
         status_icon = "pass" if status == "success" else "fail"
 
-        return f"""## AI Branch Analysis Results ({status_icon})
+        return f"""{BOT_NOTE_MARKER}
+## AI Branch Analysis Results ({status_icon})
 
 **Project:** {project_name}
 **Branch:** {self.source_branch} -> {self.target_branch}
@@ -87,6 +94,7 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
 
 {ai_analysis}
 
+<!-- cicaddy-footer -->
 ---
 *Analysis by cicaddy-gitlab AI Agent | Report: `{report.get("report_id", "N/A")}`*
 """
