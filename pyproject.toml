@@ -53,10 +53,10 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/waynesun09/cicaddy-gitlab"
-Documentation = "https://github.com/waynesun09/cicaddy-gitlab/blob/main/docs/"
-Repository = "https://github.com/waynesun09/cicaddy-gitlab.git"
-Issues = "https://github.com/waynesun09/cicaddy-gitlab/issues"
+Homepage = "https://github.com/redhat-community-ai-tools/cicaddy-gitlab"
+Documentation = "https://github.com/redhat-community-ai-tools/cicaddy-gitlab/blob/main/docs/"
+Repository = "https://github.com/redhat-community-ai-tools/cicaddy-gitlab.git"
+Issues = "https://github.com/redhat-community-ai-tools/cicaddy-gitlab/issues"
 
 [project.scripts]
 # Backward-compatible aliases pointing to cicaddy's CLI

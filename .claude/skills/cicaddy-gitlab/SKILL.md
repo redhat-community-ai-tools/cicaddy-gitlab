@@ -23,7 +23,7 @@ For AI-powered code review on merge requests. Include in your `.gitlab-ci.yml`:
 
 ```yaml
 include:
-  - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_agent_template.yml'
+  - remote: 'https://raw.githubusercontent.com/redhat-community-ai-tools/cicaddy-gitlab/main/gitlab/ai_agent_template.yml'
 
 ai_code_review:
   extends: .ai_agent_template
@@ -83,7 +83,7 @@ For scheduled jobs with MCP tool servers (monitoring, reports, audits):
 
 ```yaml
 include:
-  - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
+  - remote: 'https://raw.githubusercontent.com/redhat-community-ai-tools/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
 
 daily_analysis:
   extends: .ai_cron_template

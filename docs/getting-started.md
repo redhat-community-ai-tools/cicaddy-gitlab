@@ -17,7 +17,7 @@ pip install cicaddy-gitlab
 ### From Source
 
 ```bash
-git clone https://github.com/waynesun09/cicaddy-gitlab.git
+git clone https://github.com/redhat-community-ai-tools/cicaddy-gitlab.git
 cd cicaddy-gitlab
 pip install -e .
 ```
@@ -40,8 +40,8 @@ In your GitLab project, navigate to **Settings > CI/CD > Variables** and add:
 
 ```yaml
 include:
-  - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_agent_template.yml'
-  - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
+  - remote: 'https://raw.githubusercontent.com/redhat-community-ai-tools/cicaddy-gitlab/main/gitlab/ai_agent_template.yml'
+  - remote: 'https://raw.githubusercontent.com/redhat-community-ai-tools/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
 ```
 
 ### Option 2: Local Copy

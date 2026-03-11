@@ -27,7 +27,7 @@ Add to your `.gitlab-ci.yml`:
 
 ```yaml
 include:
-  - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_agent_template.yml'
+  - remote: 'https://raw.githubusercontent.com/redhat-community-ai-tools/cicaddy-gitlab/main/gitlab/ai_agent_template.yml'
 
 ai_code_review:
   extends: .ai_agent_template
@@ -41,7 +41,7 @@ ai_code_review:
 
 ```yaml
 include:
-  - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
+  - remote: 'https://raw.githubusercontent.com/redhat-community-ai-tools/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
 
 daily_analysis:
   extends: .ai_cron_template
@@ -149,7 +149,7 @@ You can run the agent outside of GitLab CI for development and testing using `.e
 
 ```bash
 # Install from source
-git clone https://github.com/waynesun09/cicaddy-gitlab.git
+git clone https://github.com/redhat-community-ai-tools/cicaddy-gitlab.git
 cd cicaddy-gitlab
 uv pip install -e .
 

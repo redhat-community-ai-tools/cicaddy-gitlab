@@ -6,7 +6,7 @@ This guide covers running cicaddy-gitlab outside of GitLab CI for local developm
 
 ```bash
 # Install from source with dev dependencies
-git clone https://github.com/waynesun09/cicaddy-gitlab.git
+git clone https://github.com/redhat-community-ai-tools/cicaddy-gitlab.git
 cd cicaddy-gitlab
 uv pip install -e ".[dev]"
 

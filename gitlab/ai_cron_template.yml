@@ -35,7 +35,7 @@
 #
 # 1. Include this template in your .gitlab-ci.yml using include: remote:
 #    include:
-#      - remote: 'https://raw.githubusercontent.com/waynesun09/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
+#      - remote: 'https://raw.githubusercontent.com/redhat-community-ai-tools/cicaddy-gitlab/main/gitlab/ai_cron_template.yml'
 #
 # 2. Create your scheduled job:
 #
