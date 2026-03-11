@@ -1,0 +1,86 @@
+name: pr_code_review
+description: "AI code review on pull request changes"
+type: code_review
+version: "1.0"
+
+inputs:
+  - name: pr_title
+    description: "Pull request title"
+    required: true
+  - name: pr_description
+    description: "Pull request description"
+    required: false
+  - name: pr_author
+    description: "Author of the pull request"
+    required: false
+  - name: target_branch
+    description: "Target branch for the merge"
+    required: false
+  - name: source_branch
+    description: "Source branch being merged"
+    required: false
+  - name: diff_content
+    description: "The code diff to review"
+    required: true
+    format: diff
+  - name: review_focus
+    env_var: ANALYSIS_FOCUS
+    default: "general"
+    description: "Focus area (security, performance, maintainability, general)"
+    required: false
+
+outputs:
+  - name: summary
+    description: "Brief summary of changes and overall assessment"
+    required: true
+    format: paragraph
+  - name: issues
+    description: "Identified issues, bugs, or concerns"
+    required: true
+    format: list
+  - name: security_concerns
+    description: "Security vulnerabilities or risks"
+    required: false
+    format: list
+  - name: recommendations
+    description: "Actionable recommendations for improvement"
+    required: true
+    format: list
+  - name: code_quality
+    description: "Code quality, readability, and maintainability assessment"
+    required: false
+    format: paragraph
+
+tools:
+  servers: []
+  required_tools: []
+  forbidden_tools: []
+
+constraints:
+  - Focus on actionable feedback that improves code quality
+  - Prioritize issues by severity (Critical > High > Medium > Low)
+  - Provide specific line references when identifying issues
+  - Suggest concrete fixes, not just identify problems
+  - Consider the context and purpose of the changes
+  - Avoid nitpicking style issues unless they impact readability
+  - Be constructive and respectful in feedback
+  - Check for common security vulnerabilities (injection, auth, data exposure)
+  - Verify error handling and edge cases
+  - Assess test coverage implications
+
+reasoning: chain_of_thought
+output_format: markdown
+
+context: |
+  You are reviewing a pull request for cicaddy-gitlab, a GitLab platform plugin
+  for the cicaddy AI agent library. The project provides merge request analysis,
+  branch review, GitLab API integration, and reusable GitLab CI templates.
+
+  Your goal is to:
+  1. Understand the purpose and scope of the changes
+  2. Identify bugs, security issues, and potential problems
+  3. Suggest improvements for code quality and maintainability
+  4. Provide actionable, specific feedback
+
+  The review should be thorough but respectful, focusing on helping the
+  author improve their code rather than criticizing.
