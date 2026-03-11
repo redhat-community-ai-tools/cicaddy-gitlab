@@ -101,7 +101,7 @@
 .ai_cron_template:
   variables:
     # Task-specific configuration
-    TASK_TYPE: "custom"  # security_audit, quality_report, dependency_check, custom
+    TASK_TYPE: "custom"  # custom (uses AI_TASK_PROMPT/AI_TASK_FILE), security_audit, quality_report, dependency_check; other values use general analysis
     TASK_SCOPE: "external_tools"         # full_project, main_branch, recent_changes, external_tools
     TASK_REPORT_FORMAT: "detailed"       # summary, detailed, metrics_only
 

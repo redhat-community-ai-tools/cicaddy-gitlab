@@ -125,7 +125,7 @@ custom_analysis:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TASK_TYPE` | `custom` | Task type identifier |
+| `TASK_TYPE` | `custom` | Prompt template: `custom` (uses `AI_TASK_PROMPT`/`AI_TASK_FILE`), `security_audit`, `quality_report`, `dependency_check`; other values use general analysis |
 | `TASK_SCOPE` | `external_tools` | Analysis scope |
 | `MAX_EXECUTION_TIME` | `600` | Max execution time (seconds) |
 | `CONTEXT_SAFETY_FACTOR` | `0.75` | Token budget safety factor |

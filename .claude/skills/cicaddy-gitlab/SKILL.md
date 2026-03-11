@@ -105,7 +105,7 @@ Additional cron-specific variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TASK_TYPE` | `custom` | `security_audit`, `quality_report`, `dependency_check`, `custom` |
+| `TASK_TYPE` | `custom` | Prompt template: `custom` (uses `AI_TASK_PROMPT`/`AI_TASK_FILE`), `security_audit`, `quality_report`, `dependency_check`; other values use general analysis |
 | `TASK_SCOPE` | `external_tools` | `full_project`, `main_branch`, `recent_changes`, `external_tools` |
 | `MAX_INFER_ITERS` | `30` | Higher default for complex analysis |
 | `MAX_EXECUTION_TIME` | `600` | Seconds (range: 60–7200) |
@@ -161,8 +161,11 @@ def register_agents():
 
 ### Agent type detection (`agent/factory.py`)
 
-Auto-detects `merge_request` agent when `CI_MERGE_REQUEST_IID` is set. Detector
-priority is 40 (runs before cicaddy's built-in CI detector at 50).
+Auto-detects agent type from GitLab CI environment variables. Detector priority
+is 40 (runs before cicaddy's built-in CI detector at 50). Detects:
+- `merge_request` — from `CI_MERGE_REQUEST_IID` or `CI_PIPELINE_SOURCE=merge_request_event`
+- `task` — from `TASK_TYPE`/`CRON_TASK_TYPE` or `CI_PIPELINE_SOURCE=schedule`
+- `branch_review` — from `CI_PIPELINE_SOURCE=push` to non-default branch
 
 ### Settings (`config/settings.py`)
 
@@ -177,11 +180,13 @@ priority is 40 (runs before cicaddy's built-in CI detector at 50).
 
 | Type | Class | Module | Trigger |
 |------|-------|--------|---------|
-| `merge_request` | `MergeRequestAgent` | `agent/mr_agent.py` | `CI_MERGE_REQUEST_IID` set |
-| `branch_review` | `BranchReviewAgent` | `agent/branch_agent.py` | `AGENT_TYPE=branch_review` |
+| `merge_request` | `MergeRequestAgent` | `agent/mr_agent.py` | `CI_MERGE_REQUEST_IID` set or `CI_PIPELINE_SOURCE=merge_request_event` |
+| `branch_review` | `BranchReviewAgent` | `agent/branch_agent.py` | `AGENT_TYPE=branch_review` or push to non-default branch |
+| `task` | `TaskAgent` (cicaddy core) | cicaddy `agent/task_agent.py` | `CI_PIPELINE_SOURCE=schedule` or `TASK_TYPE`/`CRON_TASK_TYPE` set |
 
-Both extend `BaseReviewAgent` (`agent/base_review_agent.py`) which extends
-cicaddy's `BaseAIAgent` with `_setup_platform_integration()` for GitLab API.
+`MergeRequestAgent` and `BranchReviewAgent` extend `BaseReviewAgent` (`agent/base_review_agent.py`)
+which extends cicaddy's `BaseAIAgent` with `_setup_platform_integration()` for GitLab API.
+`TaskAgent` is provided by cicaddy core and does not require GitLab API access.
 
 ---
 
