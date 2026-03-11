@@ -143,18 +143,42 @@ The plugin registers with cicaddy via Python entry points:
 - `cicaddy.cli_args` - GitLab CLI arguments
 - `cicaddy.validators` - GitLab configuration validation
 
+## Running Locally
+
+You can run the agent outside of GitLab CI for development and testing using `.env` files.
+
+```bash
+# Install from source
+git clone https://github.com/waynesun09/cicaddy-gitlab.git
+cd cicaddy-gitlab
+uv pip install -e .
+
+# Prepare environment file
+cp .env.example .env.local
+# Edit .env.local with your API key and settings
+
+# Validate configuration
+uv run cicaddy config show --env-file .env.local
+
+# Run the agent
+uv run cicaddy run --env-file .env.local
+
+# Override settings via CLI
+uv run cicaddy run --env-file .env.local --ai-provider openai --verbose
+```
+
+For MR review, use `.env.mr.example` as a starting point — it includes GitLab API variables (`GITLAB_TOKEN`, `CI_MERGE_REQUEST_IID`, etc.).
+
+See [docs/running-locally.md](docs/running-locally.md) for detailed examples including MCP server configuration, DSPy task files, and troubleshooting.
+
 ## Development
 
 ```bash
-# Clone the repo
-git clone https://github.com/waynesun09/cicaddy-gitlab.git
-cd cicaddy-gitlab
-
 # Install with dev dependencies
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 
 # Run tests
-pytest
+uv run pytest
 
 # Lint and format
 ruff check --fix src/ tests/

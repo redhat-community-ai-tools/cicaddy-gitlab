@@ -231,6 +231,33 @@ Reference with `AI_TASK_FILE=".gitlab/prompts/mr_code_review.yml"` in CI variabl
 
 ---
 
+## Running Locally
+
+Run the agent outside GitLab CI using `.env` files and the cicaddy CLI.
+
+```bash
+# Install and prepare env file
+uv pip install -e .
+cp .env.example .env.local   # task agent template
+cp .env.mr.example .env.mr   # MR review template
+
+# Validate and run
+uv run cicaddy config show --env-file .env.local
+uv run cicaddy run --env-file .env.local
+
+# Override settings via CLI
+uv run cicaddy run --env-file .env.local --ai-provider openai --verbose
+```
+
+Key env file rules:
+- Use `KEY=value` (no spaces around `=`)
+- Use single quotes for JSON and multi-line values: `MCP_SERVERS_CONFIG='[...]'`
+- `AI_TASK_FILE` (DSPy YAML) is recommended over `AI_TASK_PROMPT` for complex tasks
+
+See [docs/running-locally.md](../../docs/running-locally.md) for full examples.
+
+---
+
 ## Exit Codes (CI template retry logic)
 
 | Code | Meaning | Retry? |
