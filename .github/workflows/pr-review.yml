@@ -1,15 +1,35 @@
-name: PR Review
+name: AI PR Review
 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  pull_request_target:
+    types: [opened, synchronize, labeled]
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
+  remove-label-on-push:
+    if: >-
+      github.event.action == 'synchronize' &&
+      github.event.pull_request.head.repo.full_name != github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'safe-to-review')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove safe-to-review label on new push from fork
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --remove-label "safe-to-review"
+
   review:
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (
+        (github.event.pull_request.head.repo.full_name == github.repository && github.event.action != 'labeled') ||
+        (github.event.action == 'labeled' && github.event.label.name == 'safe-to-review')
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -19,8 +39,11 @@ jobs:
       - uses: redhat-community-ai-tools/cicaddy-action@v0.3.0
         with:
           ai_provider: gemini
-          ai_model: gemini-2.5-flash
+          ai_model: gemini-3-flash-preview
           ai_api_key: ${{ secrets.AI_API_KEY }}
-          task_file: .github/tasks/pr_review.yml
-          mcp_servers_config: '[{"name":"context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${{ secrets.CONTEXT7_API_KEY }}"},"timeout":300,"idle_timeout":60}]'
+          task_file: tasks/pr_review.yml
+          mcp_servers_config: >-
+            ${{ secrets.CONTEXT7_API_KEY != '' &&
+              format('[{{"name":"Context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","headers":{{"CONTEXT7_API_KEY":"{0}"}},"timeout":300,"idle_timeout":60}}]', secrets.CONTEXT7_API_KEY) ||
+              '[]' }}
           post_pr_comment: 'true'
