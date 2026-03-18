@@ -36,12 +36,41 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check for Python file changes
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- '*.py' | head -1)
+          if [ -n "$CHANGED" ]; then
+            echo "python_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "python_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore code graph cache
+        if: steps.changes.outputs.python_changed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .code-review-graph/
+          key: code-graph-${{ github.event.pull_request.base.sha }}
+          restore-keys: |
+            code-graph-
+
+      - name: Build code knowledge graph
+        if: steps.changes.outputs.python_changed == 'true'
+        run: |
+          pip install code-review-graph
+          code-review-graph update \
+            --base origin/${{ github.event.pull_request.base.ref }} --repo .
+          python .github/scripts/extract_review_context.py \
+            --base-ref origin/${{ github.event.pull_request.base.ref }} \
+            > workspace/graph_context.json
+
       - uses: redhat-community-ai-tools/cicaddy-action@v0.3.1
         with:
           ai_provider: gemini
           ai_model: gemini-3-flash-preview
           ai_api_key: ${{ secrets.AI_API_KEY }}
-          task_file: tasks/pr_review.yml
+          task_file: ${{ steps.changes.outputs.python_changed == 'true' && 'tasks/pr_review_with_graph.yml' || 'tasks/pr_review.yml' }}
           mcp_servers_config: >-
             ${{ secrets.CONTEXT7_API_KEY != '' &&
               format('[{{"name":"Context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","headers":{{"CONTEXT7_API_KEY":"{0}"}},"timeout":300,"idle_timeout":60}}]', secrets.CONTEXT7_API_KEY) ||
