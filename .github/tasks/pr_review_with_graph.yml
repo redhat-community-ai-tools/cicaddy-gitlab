@@ -69,6 +69,8 @@ tools:
 constraints:
   - Use the code knowledge graph context to understand the blast radius before reviewing the diff
   - Report the structural impact — how many files and functions are affected by the changes
+  - When the graph identifies high-impact impacted files (many callers or inheritors), use the read_file tool to read the full source of those files for a thorough review beyond the diff snippets
+  - Use glob_files to discover related test files for changed modules and read_file to verify test coverage
   - Flag any changed functions that lack test coverage (identified in graph review_guidance)
   - Prioritize issues in high-impact areas (functions with many callers or inheritors)
   - Note when changes cross module boundaries (impacted files in different directories)
@@ -98,13 +100,24 @@ context: |
   - **Review guidance**: Flags for untested changes, wide blast radius, and
     inheritance impacts
 
+  You also have access to **local agent tools** that let you read files from the
+  checked-out repository:
+  - **read_file**: Read the full source of any file in the repo. Use this to
+    inspect impacted files identified by the graph when the diff snippets alone
+    are not sufficient for a thorough review.
+  - **glob_files**: Search for files by pattern (e.g. "tests/**/test_*.py").
+    Use this to find related test files for changed modules and verify coverage.
+
   Your goal is to:
   1. Review the blast radius to understand the structural impact of the changes
-  2. Identify bugs, security issues, and potential problems in the diff
-  3. Flag any impacted code paths that may need attention but are not in the diff
-  4. Assess whether existing tests cover the changed and impacted code paths
-  5. Suggest improvements for code quality and maintainability
-  6. Provide actionable, specific feedback
+  2. For high-impact impacted files, use read_file to read the full source and
+     verify that the changes are compatible with existing callers and contracts
+  3. Identify bugs, security issues, and potential problems in the diff
+  4. Flag any impacted code paths that may need attention but are not in the diff
+  5. Use glob_files and read_file to check whether tests exist for changed functions
+  6. Suggest improvements for code quality and maintainability
+  7. Provide actionable, specific feedback
 
   Start your review by summarizing the structural impact from the code graph,
-  then proceed with the detailed code review.
+  then use read_file to inspect key impacted files before proceeding with
+  the detailed code review.
