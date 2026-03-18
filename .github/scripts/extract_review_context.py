@@ -15,6 +15,9 @@ def get_changed_files(base_ref: str) -> list[str]:
         capture_output=True,
         text=True,
     )
+    if result.returncode != 0:
+        print(f"Git diff failed: {result.stderr}", file=sys.stderr)
+        return []
     return [f for f in result.stdout.strip().split("\n") if f]
 
 

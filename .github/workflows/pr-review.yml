@@ -57,10 +57,12 @@ jobs:
 
       - name: Build code knowledge graph
         if: steps.changes.outputs.python_changed == 'true'
+        continue-on-error: true
         run: |
           pip install code-review-graph
           code-review-graph update \
             --base origin/${{ github.event.pull_request.base.ref }} --repo .
+          mkdir -p workspace
           python .github/scripts/extract_review_context.py \
             --base-ref origin/${{ github.event.pull_request.base.ref }} \
             > workspace/graph_context.json
