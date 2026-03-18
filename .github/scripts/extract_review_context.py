@@ -3,7 +3,6 @@
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 
@@ -22,9 +21,7 @@ def get_changed_files(base_ref: str) -> list[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Extract code graph review context"
-    )
+    parser = argparse.ArgumentParser(description="Extract code graph review context")
     parser.add_argument(
         "--base-ref",
         default="origin/main",
