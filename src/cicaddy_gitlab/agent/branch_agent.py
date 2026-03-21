@@ -145,7 +145,9 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
                     previous_rows,
                 )
                 result = await self.platform_analyzer.post_commit_note(
-                    commit_sha, updated_content + migration_entry
+                    commit_sha,
+                    updated_content + migration_entry,
+                    note_marker=note_marker,
                 )
                 # Now safe to delete the old note
                 try:
@@ -160,7 +162,7 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
                 )
             else:
                 result = await self.platform_analyzer.post_commit_note(
-                    commit_sha, comment_content
+                    commit_sha, comment_content, note_marker=note_marker
                 )
                 logger.info(
                     f"Posted analysis comment to commit {commit_sha[:8]}, "
