@@ -60,11 +60,9 @@ jobs:
         continue-on-error: true
         run: |
           pip install cicaddy[graph]
-          code-review-graph update \
-            --base origin/${{ github.event.pull_request.base.ref }} --repo .
           cicaddy graph-context \
             --base-ref origin/${{ github.event.pull_request.base.ref }} \
-            -o workspace/graph_context.json
+            --update -o workspace/graph_context.json
 
       - uses: redhat-community-ai-tools/cicaddy-action@v0.3.1
         with:
