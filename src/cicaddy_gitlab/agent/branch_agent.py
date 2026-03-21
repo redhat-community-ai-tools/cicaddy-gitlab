@@ -135,26 +135,25 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
                 updated_content = self.platform_analyzer._build_updated_body(
                     old_body, comment_content
                 )
-                # Delete the old note before posting so we know the status
-                deleted = False
-                try:
-                    await self.platform_analyzer.delete_commit_note(
-                        old_sha, old_discussion.id, old_note.id
-                    )
-                    deleted = True
-                except Exception as e:
-                    logger.warning(f"Could not delete old note from {old_sha[:8]}: {e}")
-                # Build migration log and post everything in a single call
+                # Build migration log and post everything in a single call.
+                # Post the new note BEFORE deleting the old one so that
+                # analysis history is never lost if the post fails.
                 migration_entry = self._format_migration_log(
                     old_sha,
                     commit_sha,
                     old_note.id,
-                    deleted,
                     previous_rows,
                 )
                 result = await self.platform_analyzer.post_commit_note(
                     commit_sha, updated_content + migration_entry
                 )
+                # Now safe to delete the old note
+                try:
+                    await self.platform_analyzer.delete_commit_note(
+                        old_sha, old_discussion.id, old_note.id
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not delete old note from {old_sha[:8]}: {e}")
                 logger.info(
                     f"Migrated branch review from {old_sha[:8]} to "
                     f"{commit_sha[:8]}, note ID: {result.get('id')}"
@@ -235,7 +234,6 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         old_sha: str,
         new_sha: str,
         old_note_id: int | None,
-        old_deleted: bool,
         previous_rows: str = "",
     ) -> str:
         """Build a hidden migration log block appended after the footer.
@@ -248,11 +246,8 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         new_url = self._build_commit_url(new_sha)
         old_ref = self._format_commit_ref(old_sha, old_url)
         new_ref = self._format_commit_ref(new_sha, new_url)
-        status = "deleted" if old_deleted else "kept"
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        new_row = (
-            f"| {ts} | {old_ref} (note {old_note_id}) | {new_ref} | old note {status} |"
-        )
+        new_row = f"| {ts} | {old_ref} (note {old_note_id}) | {new_ref} | migrated |"
         all_rows = f"{previous_rows}\n{new_row}" if previous_rows else new_row
         return (
             f"\n{MIGRATION_MARKER}\n"

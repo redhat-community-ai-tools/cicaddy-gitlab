@@ -127,11 +127,6 @@ class TestPostGitlabComment:
             {"report_id": "r1"}, {"ai_analysis": "new review", "status": "success"}
         )
 
-        # Should delete old note first
-        agent.platform_analyzer.delete_commit_note.assert_awaited_once_with(
-            "oldcommitsha", "disc-1", 5
-        )
-
         # Should post updated body with migration log in a single call
         agent.platform_analyzer.post_commit_note.assert_awaited_once()
         call_args = agent.platform_analyzer.post_commit_note.call_args
@@ -141,7 +136,12 @@ class TestPostGitlabComment:
         assert MIGRATION_MARKER in posted_body
         assert "oldcommi" in posted_body  # old SHA[:8]
         assert "newcommi" in posted_body  # new SHA[:8]
-        assert "deleted" in posted_body
+        assert "migrated" in posted_body
+
+        # Should delete old note AFTER posting the new one
+        agent.platform_analyzer.delete_commit_note.assert_awaited_once_with(
+            "oldcommitsha", "disc-1", 5
+        )
 
     @pytest.mark.asyncio
     @patch.dict("os.environ", {"CI_COMMIT_SHA": "newcommitsha"}, clear=False)
@@ -167,9 +167,9 @@ class TestPostGitlabComment:
         )
 
         agent.platform_analyzer.post_commit_note.assert_awaited_once()
-        # Migration log should record "kept" status
+        # Migration log should still be present even if delete failed
         posted_body = agent.platform_analyzer.post_commit_note.call_args[0][1]
-        assert "kept" in posted_body
+        assert "migrated" in posted_body
 
 
 class TestFormatGitlabComment:
@@ -248,27 +248,19 @@ class TestFormatGitlabComment:
 class TestMigrationLog:
     """Migration log formatting and accumulation."""
 
-    def test_format_migration_log_deleted(self):
+    def test_format_migration_log(self):
         agent = _make_agent()
-        log = agent._format_migration_log("aaa11111", "bbb22222", 10, old_deleted=True)
+        log = agent._format_migration_log("aaa11111", "bbb22222", 10)
         assert MIGRATION_MARKER in log
         assert "Migration log" in log
         assert "aaa11111" in log  # full short SHA in table
         assert "bbb22222" in log
         assert "note 10" in log
-        assert "deleted" in log
-
-    def test_format_migration_log_kept(self):
-        agent = _make_agent()
-        log = agent._format_migration_log("aaa11111", "bbb22222", 10, old_deleted=False)
-        assert "kept" in log
-        assert "deleted" not in log.split("Status |")[-1]  # only in data rows
+        assert "migrated" in log
 
     def test_accumulates_previous_rows(self):
         agent = _make_agent()
-        first_log = agent._format_migration_log(
-            "aaa11111", "bbb22222", 1, old_deleted=True
-        )
+        first_log = agent._format_migration_log("aaa11111", "bbb22222", 1)
         # Extract rows from first log
         previous_rows = agent._extract_migration_rows(first_log)
         assert "aaa11111" in previous_rows
@@ -278,7 +270,6 @@ class TestMigrationLog:
             "bbb22222",
             "ccc33333",
             2,
-            old_deleted=True,
             previous_rows=previous_rows,
         )
         # Should contain both old and new migration entries
