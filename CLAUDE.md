@@ -25,7 +25,7 @@ This package registers itself with cicaddy's plugin system via entry points in `
 
 ### Dependencies
 
-- Depends on `cicaddy>=0.2.0` (core library) and `python-gitlab>=4.4.0`
+- Depends on `cicaddy>=0.4.1` (core library) and `python-gitlab>=4.4.0`
 - Follows the same agent/factory patterns as the core library
 
 ## Code Quality
