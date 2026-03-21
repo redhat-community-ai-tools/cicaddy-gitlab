@@ -27,7 +27,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "cicaddy>=0.2.0",
+    "cicaddy>=0.4.1",
     "python-gitlab>=4.4.0",
 ]
 
