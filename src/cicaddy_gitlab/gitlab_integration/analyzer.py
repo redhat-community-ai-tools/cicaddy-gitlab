@@ -420,6 +420,78 @@ class GitLabAnalyzer:
             page += 1
         return None
 
+    async def find_bot_note_on_branch(
+        self, branch: str, note_marker: str, exclude_sha: str | None = None
+    ):
+        """Search recent commits on *branch* for an existing bot note.
+
+        Returns ``(commit_sha, discussion, note_obj)`` if found, else
+        ``None``.  Useful for migrating a note from an older commit to the
+        latest one on the same branch (e.g. branch review on push events).
+
+        Args:
+            branch: Branch name to search commits on.
+            note_marker: HTML comment marker that identifies the bot note.
+            exclude_sha: Skip this commit SHA (typically the current commit).
+        """
+        project = self._get_project()
+        # Check the most recent commits on this branch (limit search scope)
+        commits = project.commits.list(ref_name=branch, per_page=20)
+        for commit_obj in commits:
+            sha = commit_obj.id
+            if sha == exclude_sha:
+                continue
+            commit = project.commits.get(sha, lazy=True)
+            result = self._find_bot_commit_note(commit, note_marker)
+            if result is not None:
+                logger.debug(f"Found existing bot note on commit {sha[:8]}")
+                return sha, result[0], result[1]
+        return None
+
+    async def delete_commit_note(
+        self, commit_sha: str, discussion_id: str, note_id: int
+    ) -> None:
+        """Delete a note from a commit discussion."""
+        project = self._get_project()
+        commit = project.commits.get(commit_sha, lazy=True)
+        discussion = commit.discussions.get(discussion_id)
+        note = discussion.notes.get(note_id)
+        note.delete()
+        logger.info(f"Deleted note {note_id} from commit {commit_sha[:8]}")
+
+    async def update_commit_note(
+        self, commit_sha: str, note_id: int, content: str
+    ) -> None:
+        """Update an existing commit note by ID.
+
+        Uses the Comments API (``commit.comments``) which provides a flat
+        list of notes accessible by ID with a ``save()`` method.
+        """
+        project = self._get_project()
+        commit = project.commits.get(commit_sha, lazy=True)
+        # Walk discussions to find the note — commit comments API
+        # doesn't support direct GET by note ID, but discussions do.
+        page = 1
+        per_page = 50
+        while True:
+            discussions = commit.discussions.list(page=page, per_page=per_page)
+            if not discussions:
+                break
+            for discussion in discussions:
+                for note_data in discussion.attributes.get("notes", []):
+                    if note_data.get("id") == note_id:
+                        note_obj = discussion.notes.get(note_id)
+                        note_obj.body = content
+                        note_obj.save()
+                        logger.info(
+                            f"Updated note {note_id} on commit {commit_sha[:8]}"
+                        )
+                        return
+            if len(discussions) < per_page:
+                break
+            page += 1
+        raise ValueError(f"Note {note_id} not found on commit {commit_sha[:8]}")
+
     async def get_commit_info(self, commit_sha: str) -> Dict[str, Any]:
         """Get commit information."""
         try:

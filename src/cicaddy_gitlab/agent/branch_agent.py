@@ -17,6 +17,7 @@ MRO: BranchReviewAgent (this) -> BaseReviewAgent (cicaddy_gitlab)
 """
 
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from cicaddy.agent.branch_agent import BranchReviewAgent as CoreBranchReviewAgent
@@ -27,7 +28,9 @@ from cicaddy_gitlab.agent.base_review_agent import BaseReviewAgent
 
 logger = get_logger(__name__)
 
-BOT_NOTE_MARKER = "<!-- cicaddy-gitlab:branch-review -->"
+BOT_NOTE_MARKER_PREFIX = "<!-- cicaddy-gitlab:branch-review"
+BOT_NOTE_MARKER_SUFFIX = " -->"
+MIGRATION_MARKER = "<!-- cicaddy-migration-log -->"
 
 
 class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
@@ -50,6 +53,27 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         await super().send_notifications(report, analysis_result)
         await self._post_gitlab_comment(report, analysis_result)
 
+    def _get_bot_note_marker(self) -> str:
+        """Return a branch-specific bot note marker."""
+        return f"{BOT_NOTE_MARKER_PREFIX}:{self.source_branch}{BOT_NOTE_MARKER_SUFFIX}"
+
+    @staticmethod
+    def _build_commit_url(commit_sha: str) -> str:
+        """Build a GitLab commit URL from CI environment variables."""
+        server_url = os.getenv("CI_SERVER_URL")
+        project_path = os.getenv("CI_PROJECT_PATH")
+        if server_url and project_path:
+            return f"{server_url}/{project_path}/-/commit/{commit_sha}"
+        return ""
+
+    @staticmethod
+    def _format_commit_ref(commit_sha: str, commit_url: str = "") -> str:
+        """Format a short commit reference, optionally as a markdown link."""
+        short = commit_sha[:8]
+        if commit_url:
+            return f"[`{short}`]({commit_url})"
+        return f"`{short}`"
+
     async def _post_gitlab_comment(
         self, report: Dict[str, Any], analysis_result: Dict[str, Any]
     ):
@@ -58,18 +82,23 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         Prefers posting as an MR note (edit-in-place with history
         collapsing) when a merge request IID is available.  Falls back
         to commit comments when no MR context exists.
+
+        For commit comments on push events, searches previous commits
+        on the same branch for an existing bot note and migrates it to
+        the latest commit with the previous analysis collapsed.
         """
         if not self.platform_analyzer:
             logger.debug("No platform analyzer available, skipping comment")
             return
 
+        note_marker = self._get_bot_note_marker()
         comment_content = self._format_gitlab_comment(report, analysis_result)
         mr_iid = getattr(self.settings, "merge_request_iid", None)
 
         if mr_iid:
             try:
                 result = await self.platform_analyzer.post_merge_request_note(
-                    mr_iid, comment_content, note_marker=BOT_NOTE_MARKER
+                    mr_iid, comment_content, note_marker=note_marker
                 )
                 logger.info(
                     f"Posted branch analysis to MR {mr_iid}, "
@@ -88,13 +117,65 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
             return
 
         try:
-            result = await self.platform_analyzer.post_commit_note(
-                commit_sha, comment_content, note_marker=BOT_NOTE_MARKER
+            # Search previous branch commits for an existing bot note
+            # so we can migrate it (with collapsed history) to the new commit.
+            previous = await self.platform_analyzer.find_bot_note_on_branch(
+                self.source_branch, note_marker, exclude_sha=commit_sha
             )
-            logger.info(
-                f"Posted analysis comment to commit {commit_sha[:8]}, "
-                f"note ID: {result.get('id')}"
-            )
+            if previous:
+                old_sha, old_discussion, old_note = previous
+                # Preserve migration history from the old note
+                previous_rows = self._extract_migration_rows(old_note.body)
+                # Strip migration log from old body before collapsing
+                old_body = old_note.body
+                if MIGRATION_MARKER in old_body:
+                    old_body = old_body.split(MIGRATION_MARKER, 1)[0].rstrip()
+                # Build updated body with collapsed previous analysis
+                updated_content = self.platform_analyzer._build_updated_body(
+                    old_body, comment_content
+                )
+                # Post updated comment on the latest commit
+                result = await self.platform_analyzer.post_commit_note(
+                    commit_sha, updated_content
+                )
+                # Delete the old note from the previous commit
+                deleted = False
+                try:
+                    await self.platform_analyzer.delete_commit_note(
+                        old_sha, old_discussion.id, old_note.id
+                    )
+                    deleted = True
+                except Exception as e:
+                    logger.warning(f"Could not delete old note from {old_sha[:8]}: {e}")
+                # Append migration log to the posted note
+                note_id = result.get("id")
+                migration_entry = self._format_migration_log(
+                    old_sha,
+                    commit_sha,
+                    old_note.id,
+                    note_id,
+                    deleted,
+                    previous_rows,
+                )
+                if note_id and migration_entry:
+                    try:
+                        await self.platform_analyzer.update_commit_note(
+                            commit_sha, note_id, updated_content + migration_entry
+                        )
+                    except Exception as e:
+                        logger.debug(f"Could not append migration log: {e}")
+                logger.info(
+                    f"Migrated branch review from {old_sha[:8]} to "
+                    f"{commit_sha[:8]}, note ID: {note_id}"
+                )
+            else:
+                result = await self.platform_analyzer.post_commit_note(
+                    commit_sha, comment_content
+                )
+                logger.info(
+                    f"Posted analysis comment to commit {commit_sha[:8]}, "
+                    f"note ID: {result.get('id')}"
+                )
         except Exception as e:
             logger.error(f"Failed to post GitLab commit comment: {e}")
 
@@ -107,7 +188,16 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         marker is prepended, the AI analysis is included directly, and
         execution details are appended via CommentFormatter.
         """
-        comment = f"{BOT_NOTE_MARKER}\n"
+        comment = f"{self._get_bot_note_marker()}\n"
+
+        # Add commit reference header
+        commit_sha = os.getenv("CI_COMMIT_SHA", "")
+        if commit_sha:
+            commit_url = self._build_commit_url(commit_sha)
+            commit_ref = self._format_commit_ref(commit_sha, commit_url)
+            pipeline_id = os.getenv("CI_PIPELINE_ID", "")
+            pipeline_info = f" · pipeline #{pipeline_id}" if pipeline_id else ""
+            comment += f"**Branch review** for `{self.source_branch}` at {commit_ref}{pipeline_info}\n\n"
 
         if "ai_analysis" in analysis_result:
             ai_analysis = analysis_result["ai_analysis"]
@@ -127,6 +217,54 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
             "\n<!-- cicaddy-footer -->\n---\n🤖 Generated with cicaddy-gitlab AI Agent"
         )
         return comment
+
+    @staticmethod
+    def _extract_migration_rows(body: str) -> str:
+        """Extract existing migration log table rows from a note body."""
+        if MIGRATION_MARKER not in body:
+            return ""
+        section = body.split(MIGRATION_MARKER, 1)[1]
+        rows = []
+        for line in section.splitlines():
+            # Table data rows start with "| 20" (timestamp)
+            if line.startswith("| 20"):
+                rows.append(line)
+        return "\n".join(rows)
+
+    def _format_migration_log(
+        self,
+        old_sha: str,
+        new_sha: str,
+        old_note_id: int | None,
+        new_note_id: int | None,
+        old_deleted: bool,
+        previous_rows: str = "",
+    ) -> str:
+        """Build a hidden migration log block appended after the footer.
+
+        The log records the commit-to-commit migration trail so reviewers
+        can audit which commits were reviewed and where notes moved.
+        Existing rows from previous migrations are preserved.
+        """
+        old_url = self._build_commit_url(old_sha)
+        new_url = self._build_commit_url(new_sha)
+        old_ref = self._format_commit_ref(old_sha, old_url)
+        new_ref = self._format_commit_ref(new_sha, new_url)
+        status = "deleted" if old_deleted else "kept"
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        new_row = (
+            f"| {ts} | {old_ref} (note {old_note_id}) | "
+            f"{new_ref} (note {new_note_id}) | old note {status} |"
+        )
+        all_rows = f"{previous_rows}\n{new_row}" if previous_rows else new_row
+        return (
+            f"\n{MIGRATION_MARKER}\n"
+            f"\n<details>\n<summary><sub>Migration log</sub></summary>\n\n"
+            f"| Time | From | To | Status |\n"
+            f"|------|------|----|--------|\n"
+            f"{all_rows}\n"
+            f"\n</details>\n"
+        )
 
     def _get_html_artifact_url(self, report_id: str) -> str:
         """Generate GitLab CI artifact URL for HTML report."""
