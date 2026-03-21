@@ -17,6 +17,7 @@ MRO: BranchReviewAgent (this) -> BaseReviewAgent (cicaddy_gitlab)
 """
 
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict
 
@@ -134,11 +135,7 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
                 updated_content = self.platform_analyzer._build_updated_body(
                     old_body, comment_content
                 )
-                # Post updated comment on the latest commit
-                result = await self.platform_analyzer.post_commit_note(
-                    commit_sha, updated_content
-                )
-                # Delete the old note from the previous commit
+                # Delete the old note before posting so we know the status
                 deleted = False
                 try:
                     await self.platform_analyzer.delete_commit_note(
@@ -147,26 +144,20 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
                     deleted = True
                 except Exception as e:
                     logger.warning(f"Could not delete old note from {old_sha[:8]}: {e}")
-                # Append migration log to the posted note
-                note_id = result.get("id")
+                # Build migration log and post everything in a single call
                 migration_entry = self._format_migration_log(
                     old_sha,
                     commit_sha,
                     old_note.id,
-                    note_id,
                     deleted,
                     previous_rows,
                 )
-                if note_id and migration_entry:
-                    try:
-                        await self.platform_analyzer.update_commit_note(
-                            commit_sha, note_id, updated_content + migration_entry
-                        )
-                    except Exception as e:
-                        logger.debug(f"Could not append migration log: {e}")
+                result = await self.platform_analyzer.post_commit_note(
+                    commit_sha, updated_content + migration_entry
+                )
                 logger.info(
                     f"Migrated branch review from {old_sha[:8]} to "
-                    f"{commit_sha[:8]}, note ID: {note_id}"
+                    f"{commit_sha[:8]}, note ID: {result.get('id')}"
                 )
             else:
                 result = await self.platform_analyzer.post_commit_note(
@@ -218,16 +209,24 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         )
         return comment
 
-    @staticmethod
-    def _extract_migration_rows(body: str) -> str:
+    # Matches markdown table data rows: | <timestamp> | ... | ... | ... |
+    _MIGRATION_ROW_RE = re.compile(r"^\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|$")
+
+    @classmethod
+    def _extract_migration_rows(cls, body: str) -> str:
         """Extract existing migration log table rows from a note body."""
         if MIGRATION_MARKER not in body:
             return ""
         section = body.split(MIGRATION_MARKER, 1)[1]
         rows = []
         for line in section.splitlines():
-            # Table data rows start with "| 20" (timestamp)
-            if line.startswith("| 20"):
+            line = line.strip()
+            # Skip header/separator rows and match only data rows
+            if (
+                cls._MIGRATION_ROW_RE.match(line)
+                and not line.startswith("|--")
+                and not line.startswith("| Time")
+            ):
                 rows.append(line)
         return "\n".join(rows)
 
@@ -236,7 +235,6 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         old_sha: str,
         new_sha: str,
         old_note_id: int | None,
-        new_note_id: int | None,
         old_deleted: bool,
         previous_rows: str = "",
     ) -> str:
@@ -253,8 +251,7 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
         status = "deleted" if old_deleted else "kept"
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         new_row = (
-            f"| {ts} | {old_ref} (note {old_note_id}) | "
-            f"{new_ref} (note {new_note_id}) | old note {status} |"
+            f"| {ts} | {old_ref} (note {old_note_id}) | {new_ref} | old note {status} |"
         )
         all_rows = f"{previous_rows}\n{new_row}" if previous_rows else new_row
         return (

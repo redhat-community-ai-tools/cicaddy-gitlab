@@ -36,7 +36,6 @@ def _make_agent(**settings_overrides):
     agent.platform_analyzer.post_commit_note = AsyncMock(return_value={"id": 20})
     agent.platform_analyzer.find_bot_note_on_branch = AsyncMock(return_value=None)
     agent.platform_analyzer.delete_commit_note = AsyncMock()
-    agent.platform_analyzer.update_commit_note = AsyncMock()
     return agent
 
 
@@ -128,27 +127,21 @@ class TestPostGitlabComment:
             {"report_id": "r1"}, {"ai_analysis": "new review", "status": "success"}
         )
 
-        # Should post updated body to new commit
-        agent.platform_analyzer.post_commit_note.assert_awaited_once()
-        call_args = agent.platform_analyzer.post_commit_note.call_args
-        assert call_args[0][0] == "newcommitsha"
-        assert call_args[0][1] == "updated body with collapsed history"
-
-        # Should delete old note
+        # Should delete old note first
         agent.platform_analyzer.delete_commit_note.assert_awaited_once_with(
             "oldcommitsha", "disc-1", 5
         )
 
-        # Should append migration log via update_commit_note
-        agent.platform_analyzer.update_commit_note.assert_awaited_once()
-        update_args = agent.platform_analyzer.update_commit_note.call_args
-        assert update_args[0][0] == "newcommitsha"
-        assert update_args[0][1] == 20  # note ID from post_commit_note
-        updated_body = update_args[0][2]
-        assert MIGRATION_MARKER in updated_body
-        assert "oldcommi" in updated_body  # old SHA[:8]
-        assert "newcommi" in updated_body  # new SHA[:8]
-        assert "deleted" in updated_body
+        # Should post updated body with migration log in a single call
+        agent.platform_analyzer.post_commit_note.assert_awaited_once()
+        call_args = agent.platform_analyzer.post_commit_note.call_args
+        assert call_args[0][0] == "newcommitsha"
+        posted_body = call_args[0][1]
+        assert "updated body with collapsed history" in posted_body
+        assert MIGRATION_MARKER in posted_body
+        assert "oldcommi" in posted_body  # old SHA[:8]
+        assert "newcommi" in posted_body  # new SHA[:8]
+        assert "deleted" in posted_body
 
     @pytest.mark.asyncio
     @patch.dict("os.environ", {"CI_COMMIT_SHA": "newcommitsha"}, clear=False)
@@ -175,8 +168,8 @@ class TestPostGitlabComment:
 
         agent.platform_analyzer.post_commit_note.assert_awaited_once()
         # Migration log should record "kept" status
-        update_args = agent.platform_analyzer.update_commit_note.call_args
-        assert "kept" in update_args[0][2]
+        posted_body = agent.platform_analyzer.post_commit_note.call_args[0][1]
+        assert "kept" in posted_body
 
 
 class TestFormatGitlabComment:
@@ -257,29 +250,24 @@ class TestMigrationLog:
 
     def test_format_migration_log_deleted(self):
         agent = _make_agent()
-        log = agent._format_migration_log(
-            "aaa11111", "bbb22222", 10, 20, old_deleted=True
-        )
+        log = agent._format_migration_log("aaa11111", "bbb22222", 10, old_deleted=True)
         assert MIGRATION_MARKER in log
         assert "Migration log" in log
         assert "aaa11111" in log  # full short SHA in table
         assert "bbb22222" in log
         assert "note 10" in log
-        assert "note 20" in log
         assert "deleted" in log
 
     def test_format_migration_log_kept(self):
         agent = _make_agent()
-        log = agent._format_migration_log(
-            "aaa11111", "bbb22222", 10, 20, old_deleted=False
-        )
+        log = agent._format_migration_log("aaa11111", "bbb22222", 10, old_deleted=False)
         assert "kept" in log
         assert "deleted" not in log.split("Status |")[-1]  # only in data rows
 
     def test_accumulates_previous_rows(self):
         agent = _make_agent()
         first_log = agent._format_migration_log(
-            "aaa11111", "bbb22222", 1, 2, old_deleted=True
+            "aaa11111", "bbb22222", 1, old_deleted=True
         )
         # Extract rows from first log
         previous_rows = agent._extract_migration_rows(first_log)
@@ -290,18 +278,15 @@ class TestMigrationLog:
             "bbb22222",
             "ccc33333",
             2,
-            3,
             old_deleted=True,
             previous_rows=previous_rows,
         )
         # Should contain both old and new migration entries
         assert "aaa11111" in second_log
         assert "ccc33333" in second_log
-        # Should have exactly 2 data rows (lines starting with "| 20")
-        data_rows = [
-            line for line in second_log.splitlines() if line.startswith("| 20")
-        ]
-        assert len(data_rows) == 2
+        # Should have exactly 2 data rows
+        extracted = agent._extract_migration_rows(second_log)
+        assert len(extracted.strip().splitlines()) == 2
 
     def test_extract_migration_rows_empty(self):
         """Returns empty string when no migration marker present."""
