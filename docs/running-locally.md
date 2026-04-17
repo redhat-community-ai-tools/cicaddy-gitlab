@@ -126,7 +126,7 @@ uv run cicaddy validate --env-file .env.local
 |--------|-------|-------------|
 | `--env-file` | `-e` | Load environment from a .env file |
 | `--agent-type` | `-t` | Set agent type (task, mr, branch) |
-| `--ai-provider` | | Set AI provider (gemini, openai, claude) |
+| `--ai-provider` | | Set AI provider (gemini, openai, claude, anthropic-vertex) |
 | `--verbose` | `-v` | Enable debug logging |
 | `--log-level` | | Set log level (DEBUG, INFO, WARNING, ERROR) |
 
