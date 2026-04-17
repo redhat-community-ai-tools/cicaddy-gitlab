@@ -41,6 +41,16 @@
 #     AI_MODEL: "claude-sonnet-4-6"
 #     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 #
+# VERTEX AI CLAUDE SETUP (Google Cloud - uses ADC, no API key needed):
+# ai_code_review_vertex:
+#   extends: .ai_agent_template
+#   variables:
+#     AI_PROVIDER: "anthropic-vertex"
+#     ANTHROPIC_VERTEX_PROJECT_ID: $ANTHROPIC_VERTEX_PROJECT_ID
+#     CLOUD_ML_REGION: "us-east5"
+#     AI_MODEL: "claude-sonnet-4-6"
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#
 # ADVANCED SETUP (With optional MCP tools for specialized analysis):
 # NOTE: CONTEXT7_API_KEY must be configured as a masked CI/CD variable
 # (Settings → CI/CD → Variables, enable "Mask variable" to protect the value in logs)
@@ -162,7 +172,13 @@
       echo "=== AI Provider Configuration Check ==="
       echo "AI_PROVIDER: ${AI_PROVIDER:-not_set}"
 
-      if [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
+      if [ "$AI_PROVIDER" = "anthropic-vertex" ]; then
+        if [ -z "$ANTHROPIC_VERTEX_PROJECT_ID" ]; then
+          echo "ERROR: AI_PROVIDER='anthropic-vertex' requires ANTHROPIC_VERTEX_PROJECT_ID to be set"
+          exit 3
+        fi
+        echo "Claude Vertex provider configured (region: ${CLOUD_ML_REGION:-us-east5})"
+      elif [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           echo "ERROR: AI_PROVIDER='$AI_PROVIDER' requires ANTHROPIC_API_KEY to be set"
           exit 3

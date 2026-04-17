@@ -82,6 +82,18 @@ variables:
   AI_MODEL: "claude-sonnet-4-6"
 ```
 
+### Anthropic Claude via Vertex AI
+
+Uses Google Cloud ADC for authentication — no API key needed. Set `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key.
+
+```yaml
+variables:
+  AI_PROVIDER: "anthropic-vertex"
+  ANTHROPIC_VERTEX_PROJECT_ID: $ANTHROPIC_VERTEX_PROJECT_ID
+  CLOUD_ML_REGION: "us-east5"  # default
+  AI_MODEL: "claude-sonnet-4-6"
+```
+
 ## MCP Server Configuration
 
 MCP (Model Context Protocol) servers provide external tool capabilities to the AI agent.
@@ -108,6 +120,8 @@ All secrets should be stored as GitLab CI/CD variables (**Settings > CI/CD > Var
 | `CONTEXT7_API_KEY` | **Yes** | Recommended | MCP tool authentication |
 | `SLACK_WEBHOOK_URL` | **Yes** | Optional | Notification webhook |
 | `GITLAB_TOKEN` | **Yes** | Recommended | Only needed for enhanced permissions beyond `CI_JOB_TOKEN` |
+| `ANTHROPIC_VERTEX_PROJECT_ID` | **Yes** | Recommended | GCP project ID for Vertex AI Claude |
+| `GOOGLE_APPLICATION_CREDENTIALS` | **File** | Recommended | GCP service account JSON key — use **File** type variable so GitLab writes it to disk and ADC picks it up automatically |
 | `CI_JOB_TOKEN` | Auto | Auto | Provided and masked by GitLab automatically — no setup needed |
 
 - **Masked** — hides values from job logs. Always enable for secrets.
