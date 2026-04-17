@@ -119,7 +119,7 @@ custom_analysis:
 |----------|---------|-------------|
 | `AGENT_TASKS` | `code_review` | Comma-separated task list |
 | `GIT_DIFF_CONTEXT_LINES` | `10` | Context lines in diff |
-| `GIT_WORKING_DIRECTORY` | `..` | Git repo directory |
+| `GIT_WORKING_DIRECTORY` | `.` | Git repo directory |
 
 ### Cron Template Variables
 

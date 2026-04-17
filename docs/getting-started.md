@@ -79,7 +79,7 @@ variables:
 variables:
   AI_PROVIDER: "claude"
   ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
-  AI_MODEL: "claude-3-5-sonnet-latest"
+  AI_MODEL: "claude-sonnet-4-6"
 ```
 
 ## MCP Server Configuration
