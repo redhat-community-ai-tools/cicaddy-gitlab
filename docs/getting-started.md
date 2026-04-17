@@ -79,7 +79,7 @@ variables:
 variables:
   AI_PROVIDER: "claude"
   ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
-  AI_MODEL: "claude-3-5-sonnet-latest"
+  AI_MODEL: "claude-sonnet-4-6"
 ```
 
 ## MCP Server Configuration
@@ -95,6 +95,25 @@ variables:
 ```
 
 Set to `"[]"` for analysis without external tools.
+
+## Security Best Practices
+
+All secrets should be stored as GitLab CI/CD variables (**Settings > CI/CD > Variables**), never hardcoded in `.gitlab-ci.yml`.
+
+| Variable | Masked | Protected | Notes |
+|----------|--------|-----------|-------|
+| `GEMINI_API_KEY` | **Yes** | Recommended | AI provider key |
+| `OPENAI_API_KEY` | **Yes** | Recommended | AI provider key |
+| `ANTHROPIC_API_KEY` | **Yes** | Recommended | AI provider key |
+| `CONTEXT7_API_KEY` | **Yes** | Recommended | MCP tool authentication |
+| `SLACK_WEBHOOK_URL` | **Yes** | Optional | Notification webhook |
+| `GITLAB_TOKEN` | **Yes** | Recommended | Only needed for enhanced permissions beyond `CI_JOB_TOKEN` |
+| `CI_JOB_TOKEN` | Auto | Auto | Provided and masked by GitLab automatically — no setup needed |
+
+- **Masked** — hides values from job logs. Always enable for secrets.
+- **Protected** — restricts the variable to protected branches/tags only. Use when you want to prevent feature branches from accessing production keys.
+- For shared keys across multiple projects, set variables at the **group level** (**Group > Settings > CI/CD > Variables**) to avoid per-project duplication.
+- Never commit `.env` files containing secrets to version control.
 
 ## Troubleshooting
 
