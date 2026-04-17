@@ -19,6 +19,19 @@ pip install cicaddy-gitlab
 
 This automatically installs `cicaddy` core as a dependency and registers the GitLab plugin via entry points.
 
+## Prerequisites
+
+Set up your AI provider API key as a GitLab CI/CD variable before adding the templates.
+
+Using Gemini as an example:
+
+1. Go to **Settings > CI/CD > Variables** in your GitLab project
+2. Click **Add variable**
+3. Set **Key** to `GEMINI_API_KEY`, paste your API key as **Value**
+4. Check **Mask variable**, then click **Add variable**
+
+See [docs/getting-started.md](docs/getting-started.md) for other providers (OpenAI, Claude, Anthropic Vertex AI) and full security best practices.
+
 ## Quick Start
 
 ### Merge Request Code Review
