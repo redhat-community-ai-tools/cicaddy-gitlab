@@ -69,6 +69,21 @@
 #   rules:
 #     - if: $CI_PIPELINE_SOURCE == "schedule"
 #
+# VERTEX AI CLAUDE SETUP (Google Cloud - uses ADC, no API key needed):
+# daily_analysis_vertex:
+#   extends: .ai_cron_template
+#   variables:
+#     AI_PROVIDER: "anthropic-vertex"
+#     ANTHROPIC_VERTEX_PROJECT_ID: $ANTHROPIC_VERTEX_PROJECT_ID
+#     CLOUD_ML_REGION: "us-east5"
+#     AI_MODEL: "claude-sonnet-4-6"
+#     MCP_SERVERS_CONFIG: "[]"
+#     AI_TASK_PROMPT: |
+#       Perform analysis using Claude via Vertex AI.
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#
 # DSPY TASK FILE SETUP (Declarative YAML prompts - recommended for structured analysis):
 # daily_analysis_dspy:
 #   extends: .ai_cron_template
@@ -198,7 +213,13 @@
       echo "=== AI Provider Configuration Check ==="
       echo "AI_PROVIDER: ${AI_PROVIDER:-not_set}"
 
-      if [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
+      if [ "$AI_PROVIDER" = "anthropic-vertex" ]; then
+        if [ -z "$ANTHROPIC_VERTEX_PROJECT_ID" ]; then
+          echo "ERROR: AI_PROVIDER='anthropic-vertex' requires ANTHROPIC_VERTEX_PROJECT_ID to be set"
+          exit 3
+        fi
+        echo "Claude Vertex provider configured (region: ${CLOUD_ML_REGION:-us-east5})"
+      elif [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           echo "ERROR: AI_PROVIDER='$AI_PROVIDER' requires ANTHROPIC_API_KEY to be set"
           exit 3

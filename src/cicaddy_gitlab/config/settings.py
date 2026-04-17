@@ -178,6 +178,12 @@ def load_settings() -> Settings:
         env_data["openai_api_key"] = os.getenv("OPENAI_API_KEY")
     if os.getenv("ANTHROPIC_API_KEY"):
         env_data["anthropic_api_key"] = os.getenv("ANTHROPIC_API_KEY")
+    if os.getenv("ANTHROPIC_VERTEX_PROJECT_ID"):
+        env_data["anthropic_vertex_project_id"] = os.getenv(
+            "ANTHROPIC_VERTEX_PROJECT_ID"
+        )
+    if os.getenv("CLOUD_ML_REGION"):
+        env_data["cloud_ml_region"] = os.getenv("CLOUD_ML_REGION")
     if os.getenv("AZURE_OPENAI_KEY"):
         env_data["azure_openai_key"] = os.getenv("AZURE_OPENAI_KEY")
     if os.getenv("AZURE_ENDPOINT"):
