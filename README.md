@@ -7,7 +7,7 @@ GitLab platform plugin for the [cicaddy](https://github.com/waynesun09/cicaddy) 
 - **Merge Request Code Review** - AI-powered code review on GitLab merge requests with inline comments
 - **Branch Review** - Compare branch changes against main for deployment readiness analysis
 - **Scheduled Analysis** - Cron-based AI analysis jobs with MCP tool integration
-- **Multi-Provider AI** - Support for Gemini, OpenAI, Claude
+- **Multi-Provider AI** - Support for Gemini, OpenAI, Claude, Anthropic via Vertex AI
 - **DSPy Task Files** - Declarative YAML prompt definitions for structured analysis
 - **GitLab CI Templates** - Ready-to-use CI/CD templates for merge request and scheduled jobs
 

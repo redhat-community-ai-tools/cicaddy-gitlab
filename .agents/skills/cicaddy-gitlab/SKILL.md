@@ -254,7 +254,7 @@ Key env file rules:
 - Use single quotes for JSON and multi-line values: `MCP_SERVERS_CONFIG='[...]'`
 - `AI_TASK_FILE` (DSPy YAML) is recommended over `AI_TASK_PROMPT` for complex tasks
 
-See [docs/running-locally.md](../../docs/running-locally.md) for full examples.
+See [docs/running-locally.md](../../../docs/running-locally.md) for full examples.
 
 ---
 
