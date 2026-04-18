@@ -81,6 +81,9 @@ gitlab = "cicaddy_gitlab.plugin:validate"
 [project.entry-points."cicaddy.settings_loader"]
 gitlab = "cicaddy_gitlab.config.settings:load_settings"
 
+[project.entry-points."cicaddy.delegation_blocked_tools"]
+gitlab = "cicaddy_gitlab.plugin:get_delegation_blocked_tools"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["cicaddy_gitlab*"]

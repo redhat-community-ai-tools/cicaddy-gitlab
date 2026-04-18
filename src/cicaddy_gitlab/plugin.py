@@ -65,6 +65,34 @@ def config_section(config, mask_fn, sensitive_vars):
             print(f"  {var}: {value or '(not set)'}")
 
 
+def get_delegation_blocked_tools() -> set[str]:
+    """Return tool names that delegation sub-agents must NOT use.
+
+    These are write/mutating operations on the GitLab platform that only
+    the parent agent should perform (posting comments, updating MRs, etc.).
+    """
+    return {
+        # GitLab analyzer mutating methods
+        "post_merge_request_note",
+        "update_merge_request_note",
+        "post_commit_note",
+        "delete_commit_note",
+        # Common GitLab MCP server write tools
+        "create_merge_request_note",
+        "create_note",
+        "update_merge_request",
+        "merge_merge_request",
+        "create_issue",
+        "update_issue",
+        "add_label",
+        "remove_label",
+        "create_branch",
+        "delete_branch",
+        # Notification tools
+        "send_slack_message",
+    }
+
+
 def validate(config):
     """Validate GitLab-specific configuration."""
     import os

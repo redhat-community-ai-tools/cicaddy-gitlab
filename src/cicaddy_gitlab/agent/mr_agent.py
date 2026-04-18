@@ -334,6 +334,25 @@ Security Analysis Focus:
             if html_url:
                 comment += f"\n📊 **[View Full HTML Report]({html_url})**\n"
 
+        # Add delegation metadata if delegation mode was used
+        if analysis_result.get("delegation_mode") == "auto":
+            delegation_plan = analysis_result.get("delegation_plan", {})
+            agents = delegation_plan.get("agents", [])
+            agent_names = [a["name"] for a in agents]
+            succeeded = analysis_result.get("agents_succeeded", 0)
+            failed = analysis_result.get("agents_failed", 0)
+            exec_time = analysis_result.get("total_execution_time", 0)
+            comment += (
+                f"\n<details><summary>Delegation details: "
+                f"{succeeded} agent(s) succeeded"
+                f"{f', {failed} failed' if failed else ''}"
+                f" ({exec_time:.1f}s)</summary>\n\n"
+                f"Agents: {', '.join(agent_names)}\n\n"
+            )
+            for agent in agents:
+                comment += f"- **{agent['name']}**: {agent.get('rationale', '')}\n"
+            comment += "\n</details>\n"
+
         # Add footer with token usage information
         footer = "🤖 Generated with cicaddy-gitlab AI Agent"
 
