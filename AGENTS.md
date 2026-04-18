@@ -43,7 +43,7 @@ Detector priority 40 ensures GitLab detection runs before cicaddy's built-in CI 
 
 ### Dependencies
 
-- Depends on `cicaddy>=0.7.0` (core library) and `python-gitlab>=4.4.0`
+- Depends on `cicaddy>=0.8.0` (core library) and `python-gitlab>=4.4.0`
 - Follows the same agent/factory patterns as the core library
 - Extends `BaseAIAgent` and `BaseReviewAgent` from cicaddy
 
@@ -56,6 +56,36 @@ Detector priority 40 ensures GitLab detection runs before cicaddy's built-in CI 
 | `task` | `TaskAgent` (cicaddy core) | `CI_PIPELINE_SOURCE=schedule` or `TASK_TYPE` set |
 
 `MergeRequestAgent` and `BranchReviewAgent` extend `BaseReviewAgent` which extends cicaddy's `BaseAIAgent` with `_setup_platform_integration()` for GitLab API.
+
+## Sub-Agent Delegation (v0.4.0+)
+
+Requires cicaddy>=0.8.0. When `DELEGATION_MODE=auto`, the parent agent's `analyze()` method delegates to specialized sub-agents:
+
+1. **Triage** — AI analyzes the MR diff/context and selects reviewers
+2. **Parallel Execution** — Selected sub-agents run concurrently with focused prompts
+3. **Aggregation** — Results merged into a single MR comment with per-agent sections
+
+### Plugin Hooks
+
+The cicaddy-gitlab plugin provides:
+
+- `cicaddy.delegation_blocked_tools` entry point — blocks GitLab write operations (posting notes, merging MRs, etc.) so sub-agents only perform analysis
+- Delegation metadata in MR comments — shows which agents ran, success/failure counts, and execution time in a collapsible details block
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DELEGATION_MODE` | `none` | `none` or `auto` |
+| `MAX_SUB_AGENTS` | `3` | Max concurrent sub-agents (1-10) |
+| `SUB_AGENT_MAX_ITERS` | `10` | Iterations per sub-agent (1-15) |
+| `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Custom agent YAML directory |
+| `DELEGATION_AGENTS` | (empty) | JSON config for inline custom sub-agents |
+| `TRIAGE_PROMPT` | (empty) | Custom triage instructions |
+
+CLI flags: `--delegation-mode auto --max-sub-agents 2`
+
+See cicaddy's [sub-agent delegation docs](https://github.com/waynesun09/cicaddy/blob/main/docs/sub-agent-delegation.md) for built-in agents, custom YAML format, and tool filtering.
 
 ## GitLab CI Templates
 

@@ -148,6 +148,11 @@
     # Iterative execution configuration
     MAX_INFER_ITERS: "30"
 
+    # Sub-Agent Delegation (requires cicaddy>=0.8.0)
+    DELEGATION_MODE: "none"
+    MAX_SUB_AGENTS: "3"
+    SUB_AGENT_MAX_ITERS: "10"
+
     # Execution time limit configuration
     MAX_EXECUTION_TIME: "${MAX_EXECUTION_TIME:-600}"
 
