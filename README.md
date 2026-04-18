@@ -48,6 +48,7 @@ ai_code_review:
   variables:
     AI_PROVIDER: "gemini"
     GEMINI_API_KEY: $GEMINI_API_KEY
+    DELEGATION_MODE: "auto"
     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 ```
 
