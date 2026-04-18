@@ -47,8 +47,11 @@ ai_code_review:
   variables:
     AI_PROVIDER: "gemini"
     GEMINI_API_KEY: $GEMINI_API_KEY
+    DELEGATION_MODE: "auto"
     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 ```
+
+> **Sub-Agent Delegation**: When `DELEGATION_MODE` is set to `auto`, the agent uses AI-powered triage to analyze the MR diff and spawns specialized sub-agents in parallel (e.g., code quality, security, performance). Each sub-agent runs with a focused scope and reduced token budget, and their results are aggregated into a single unified review. This produces deeper, more structured reviews compared to single-agent mode. Set `DELEGATION_MODE: "none"` to use a single agent instead. See [docs/delegation.md](docs/delegation.md) for details.
 
 ### Scheduled Analysis with MCP Tools
 
@@ -131,6 +134,8 @@ custom_analysis:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_TASKS` | `code_review` | Comma-separated task list |
+| `DELEGATION_MODE` | `none` | `auto` for AI-powered sub-agent delegation, `none` for single-agent |
+| `MAX_SUB_AGENTS` | `3` | Max concurrent sub-agents (1-10) |
 | `GIT_DIFF_CONTEXT_LINES` | `10` | Context lines in diff |
 | `GIT_WORKING_DIRECTORY` | `.` | Git repo directory |
 
