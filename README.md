@@ -136,6 +136,7 @@ custom_analysis:
 | `AGENT_TASKS` | `code_review` | Comma-separated task list |
 | `DELEGATION_MODE` | `none` | `auto` for AI-powered sub-agent delegation, `none` for single-agent |
 | `MAX_SUB_AGENTS` | `3` | Max concurrent sub-agents (1-10) |
+| `SUB_AGENT_MAX_ITERS` | `5` | Max iterations per sub-agent (1-15) |
 | `GIT_DIFF_CONTEXT_LINES` | `10` | Context lines in diff |
 | `GIT_WORKING_DIRECTORY` | `.` | Git repo directory |
 
