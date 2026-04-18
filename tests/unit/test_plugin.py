@@ -68,6 +68,16 @@ class TestGetDelegationBlockedTools:
         assert "add_label" in blocked
         assert "remove_label" in blocked
 
+    def test_blocks_file_mutation_tools(self):
+        from cicaddy_gitlab.plugin import get_delegation_blocked_tools
+
+        blocked = get_delegation_blocked_tools()
+        assert "create_file" in blocked
+        assert "update_file" in blocked
+        assert "delete_file" in blocked
+        assert "cherry_pick" in blocked
+        assert "revert" in blocked
+
     def test_blocks_notification_tools(self):
         from cicaddy_gitlab.plugin import get_delegation_blocked_tools
 

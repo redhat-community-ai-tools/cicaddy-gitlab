@@ -98,6 +98,12 @@ def get_delegation_blocked_tools() -> set[str]:
         "create_tag",
         "delete_tag",
         "create_release",
+        # File and repository mutation tools
+        "create_file",
+        "update_file",
+        "delete_file",
+        "cherry_pick",
+        "revert",
         # Notification tools
         "send_slack_message",
     }

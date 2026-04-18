@@ -339,10 +339,10 @@ Security Analysis Focus:
             delegation_plan = analysis_result.get("delegation_plan", {})
             agents = delegation_plan.get("agents", [])
             if agents:
-                agent_names = [a["name"] for a in agents]
+                agent_names = [a.get("name", "unknown") for a in agents]
                 succeeded = analysis_result.get("agents_succeeded", 0)
                 failed = analysis_result.get("agents_failed", 0)
-                exec_time = analysis_result.get("total_execution_time", 0)
+                exec_time = analysis_result.get("total_execution_time") or 0
                 comment += (
                     f"\n<details><summary>Delegation details: "
                     f"{succeeded} agent(s) succeeded"
@@ -351,7 +351,7 @@ Security Analysis Focus:
                     f"Agents: {', '.join(agent_names)}\n\n"
                 )
                 for agent in agents:
-                    comment += f"- **{agent['name']}**: {agent.get('rationale', '')}\n"
+                    comment += f"- **{agent.get('name', 'unknown')}**: {agent.get('rationale', '')}\n"
                 comment += "\n</details>\n"
 
         # Add footer with token usage information
