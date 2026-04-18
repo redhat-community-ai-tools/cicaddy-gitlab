@@ -48,11 +48,10 @@ ai_code_review:
   variables:
     AI_PROVIDER: "gemini"
     GEMINI_API_KEY: $GEMINI_API_KEY
-    DELEGATION_MODE: "auto"
     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 ```
 
-> **Sub-Agent Delegation**: When `DELEGATION_MODE` is set to `auto`, the agent uses AI-powered triage to analyze the MR diff and spawns specialized sub-agents in parallel (e.g., code quality, security, performance). Each sub-agent runs with a focused scope and reduced token budget, and their results are aggregated into a single unified review. This produces deeper, more structured reviews compared to single-agent mode. Set `DELEGATION_MODE: "none"` to use a single agent instead. See [docs/delegation.md](docs/delegation.md) for details.
+Delegation is enabled by default — the agent triages the diff and spawns specialist sub-agents (security, performance, etc.) in parallel. Set `DELEGATION_MODE: "none"` for single-agent review. See [docs/delegation.md](docs/delegation.md) for details.
 
 ### Scheduled Analysis with MCP Tools
 
@@ -128,12 +127,6 @@ custom_analysis:
 | `AI_TASK_PROMPT` | (built-in) | Inline task prompt |
 | `SLACK_WEBHOOK_URL` | (empty) | Slack webhook for notifications |
 | `MAX_INFER_ITERS` | `15` | Max AI inference iterations (agent: 15, cron: 30) |
-| `DELEGATION_MODE` | `none` | `none` (single-agent) or `auto` (multi-agent delegation) |
-| `MAX_SUB_AGENTS` | `3` | Maximum concurrent sub-agents (1-10) |
-| `SUB_AGENT_MAX_ITERS` | `10` | Max inference iterations per sub-agent (1-15) |
-| `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Custom agent YAML directory |
-| `DELEGATION_AGENTS` | (empty) | JSON config for inline custom sub-agents |
-| `TRIAGE_PROMPT` | (empty) | Custom triage instructions |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ### Agent Template Variables
@@ -141,9 +134,8 @@ custom_analysis:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_TASKS` | `code_review` | Comma-separated task list |
-| `DELEGATION_MODE` | `none` | `auto` for AI-powered sub-agent delegation, `none` for single-agent |
+| `DELEGATION_MODE` | `auto` | `auto` (multi-agent delegation) or `none` (single-agent) |
 | `MAX_SUB_AGENTS` | `3` | Max concurrent sub-agents (1-10) |
-| `SUB_AGENT_MAX_ITERS` | `5` | Max iterations per sub-agent (1-15) |
 | `GIT_DIFF_CONTEXT_LINES` | `10` | Context lines in diff |
 | `GIT_WORKING_DIRECTORY` | `.` | Git repo directory |
 

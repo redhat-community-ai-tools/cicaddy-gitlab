@@ -24,7 +24,7 @@
 #
 # 2. Customize the job by overriding variables:
 #
-# SIMPLE SETUP (Recommended for most users):
+# SIMPLE SETUP (Recommended - uses delegated multi-agent review by default):
 # ai_code_review:
 #   extends: .ai_agent_template
 #   variables:
@@ -75,14 +75,13 @@
 #     AI_TASK_FILE: ".gitlab/prompts/mr_code_review.yml"
 #     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 #
-# DELEGATED REVIEW SETUP (AI triage + parallel specialist reviewers):
-# ai_delegated_review:
+# SINGLE-AGENT REVIEW (Opt out of delegated multi-agent review):
+# ai_single_review:
 #   extends: .ai_agent_template
 #   variables:
 #     AI_PROVIDER: "gemini"
 #     GEMINI_API_KEY: $GEMINI_API_KEY
-#     DELEGATION_MODE: "auto"
-#     MAX_SUB_AGENTS: "3"
+#     DELEGATION_MODE: "none"
 #     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 #
 # BRANCH REVIEW SETUP (Analyzes branch changes against target branch):
@@ -136,8 +135,8 @@
     MAX_INFER_ITERS: "15"
 
     # Sub-Agent Delegation (requires cicaddy>=0.8.0)
-    # Set to "auto" to enable AI-powered multi-agent review
-    DELEGATION_MODE: "none"
+    # Set to "none" to disable and use single-agent review
+    DELEGATION_MODE: "auto"
     MAX_SUB_AGENTS: "3"
     SUB_AGENT_MAX_ITERS: "10"
 
