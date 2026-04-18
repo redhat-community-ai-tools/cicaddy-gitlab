@@ -115,22 +115,6 @@ custom_analysis:
     AI_TASK_FILE: "../.gitlab/prompts/my_analysis.yml"
 ```
 
-### Delegated Code Review
-
-Enable sub-agent delegation to split MR reviews across specialized AI reviewers that run in parallel:
-
-```yaml
-ai_code_review:
-  extends: .ai_agent_template
-  variables:
-    AI_PROVIDER: "gemini"
-    GEMINI_API_KEY: $GEMINI_API_KEY
-    DELEGATION_MODE: "auto"
-    MAX_SUB_AGENTS: "3"
-```
-
-The triage AI analyzes the diff and activates relevant specialist reviewers (security, architecture, performance, etc.). Results are aggregated into a single MR comment with per-agent sections. See [docs/delegation.md](docs/delegation.md) for full configuration and custom agent setup.
-
 ## CI Template Variables
 
 ### Common Variables
