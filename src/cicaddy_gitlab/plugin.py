@@ -82,12 +82,22 @@ def get_delegation_blocked_tools() -> set[str]:
         "create_note",
         "update_merge_request",
         "merge_merge_request",
+        "approve_merge_request",
+        "unapprove_merge_request",
         "create_issue",
         "update_issue",
+        "close_issue",
         "add_label",
         "remove_label",
         "create_branch",
         "delete_branch",
+        # Pipeline and tag operations
+        "create_pipeline",
+        "cancel_pipeline",
+        "retry_pipeline",
+        "create_tag",
+        "delete_tag",
+        "create_release",
         # Notification tools
         "send_slack_message",
     }
