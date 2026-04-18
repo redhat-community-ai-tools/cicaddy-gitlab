@@ -139,6 +139,7 @@
     # Set to "auto" to enable AI-powered multi-agent review
     DELEGATION_MODE: "none"
     MAX_SUB_AGENTS: "3"
+    SUB_AGENT_MAX_ITERS: "10"
 
     # Recovery mechanism configuration
     RECOVERY_ENABLED: "false"
