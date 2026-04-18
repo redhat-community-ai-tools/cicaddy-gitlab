@@ -78,8 +78,9 @@ The cicaddy-gitlab plugin provides:
 |----------|---------|-------------|
 | `DELEGATION_MODE` | `none` | `none` or `auto` |
 | `MAX_SUB_AGENTS` | `3` | Max concurrent sub-agents (1-10) |
-| `SUB_AGENT_MAX_ITERS` | `5` | Iterations per sub-agent (1-15) |
+| `SUB_AGENT_MAX_ITERS` | `10` | Iterations per sub-agent (1-15) |
 | `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Custom agent YAML directory |
+| `DELEGATION_AGENTS` | (empty) | JSON config for inline custom sub-agents |
 | `TRIAGE_PROMPT` | (empty) | Custom triage instructions |
 
 CLI flags: `--delegation-mode auto --max-sub-agents 2`

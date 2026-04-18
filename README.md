@@ -143,7 +143,10 @@ The triage AI analyzes the diff and activates relevant specialist reviewers (sec
 | `MAX_INFER_ITERS` | `15` | Max AI inference iterations (agent: 15, cron: 30) |
 | `DELEGATION_MODE` | `none` | `none` (single-agent) or `auto` (multi-agent delegation) |
 | `MAX_SUB_AGENTS` | `3` | Maximum concurrent sub-agents (1-10) |
-| `SUB_AGENT_MAX_ITERS` | `5` | Max inference iterations per sub-agent (1-15) |
+| `SUB_AGENT_MAX_ITERS` | `10` | Max inference iterations per sub-agent (1-15) |
+| `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Custom agent YAML directory |
+| `DELEGATION_AGENTS` | (empty) | JSON config for inline custom sub-agents |
+| `TRIAGE_PROMPT` | (empty) | Custom triage instructions |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ### Agent Template Variables
