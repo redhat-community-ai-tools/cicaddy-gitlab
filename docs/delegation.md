@@ -1,6 +1,6 @@
 # Sub-Agent Delegation
 
-cicaddy-gitlab v0.4.0+ supports AI-powered sub-agent delegation via cicaddy>=0.8.0. Instead of a single AI pass, the framework uses a triage AI to select specialized sub-agents that run in parallel.
+cicaddy-gitlab v0.5.1+ supports AI-powered sub-agent delegation via cicaddy>=0.8.0. Instead of a single AI pass, the framework uses a triage AI to select specialized sub-agents that run in parallel.
 
 ## How It Works
 
@@ -41,7 +41,7 @@ uv run cicaddy run --env-file .env.mr --delegation-mode auto --max-sub-agents 2
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DELEGATION_MODE` | `none` | `none` (single-agent) or `auto` (AI-powered delegation) |
+| `DELEGATION_MODE` | `auto` | `auto` (AI-powered delegation) or `none` (single-agent) |
 | `MAX_SUB_AGENTS` | `3` | Maximum concurrent sub-agents (1-10) |
 | `SUB_AGENT_MAX_ITERS` | `10` | Max inference iterations per sub-agent (1-15) |
 | `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Directory for user-defined sub-agent YAML files |

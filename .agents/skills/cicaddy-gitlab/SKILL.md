@@ -274,7 +274,7 @@ for automatic retry on exit code 2.
 
 ## Sub-Agent Delegation
 
-cicaddy-gitlab v0.4.0+ supports AI-powered sub-agent delegation via cicaddy>=0.8.0.
+cicaddy-gitlab v0.5.1+ supports AI-powered sub-agent delegation via cicaddy>=0.8.0.
 
 ### How It Works
 
@@ -289,7 +289,7 @@ delegates to specialized sub-agents:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DELEGATION_MODE` | `none` | `none` (single-agent) or `auto` (multi-agent) |
+| `DELEGATION_MODE` | `auto` | `auto` (multi-agent) or `none` (single-agent) |
 | `MAX_SUB_AGENTS` | `3` | Max concurrent sub-agents (1-10) |
 | `SUB_AGENT_MAX_ITERS` | `10` | Iterations per sub-agent (1-15) |
 | `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Custom agent YAML directory |
