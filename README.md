@@ -5,6 +5,7 @@ GitLab platform plugin for the [cicaddy](https://github.com/waynesun09/cicaddy) 
 ## Features
 
 - **Merge Request Code Review** - AI-powered code review on GitLab merge requests with inline comments
+- **Sub-Agent Delegation** - AI-powered multi-agent review with specialized sub-agents running in parallel
 - **Branch Review** - Compare branch changes against main for deployment readiness analysis
 - **Scheduled Analysis** - Cron-based AI analysis jobs with MCP tool integration
 - **Multi-Provider AI** - Support for Gemini, OpenAI, Claude, Anthropic via Vertex AI
@@ -111,6 +112,22 @@ custom_analysis:
     AI_TASK_FILE: "../.gitlab/prompts/my_analysis.yml"
 ```
 
+### Delegated Code Review
+
+Enable sub-agent delegation to split MR reviews across specialized AI reviewers that run in parallel:
+
+```yaml
+ai_code_review:
+  extends: .ai_agent_template
+  variables:
+    AI_PROVIDER: "gemini"
+    GEMINI_API_KEY: $GEMINI_API_KEY
+    DELEGATION_MODE: "auto"
+    MAX_SUB_AGENTS: "3"
+```
+
+The triage AI analyzes the diff and activates relevant specialist reviewers (security, architecture, performance, etc.). Results are aggregated into a single MR comment with per-agent sections. See [docs/delegation.md](docs/delegation.md) for full configuration and custom agent setup.
+
 ## CI Template Variables
 
 ### Common Variables
@@ -124,6 +141,8 @@ custom_analysis:
 | `AI_TASK_PROMPT` | (built-in) | Inline task prompt |
 | `SLACK_WEBHOOK_URL` | (empty) | Slack webhook for notifications |
 | `MAX_INFER_ITERS` | `15` | Max AI inference iterations (agent: 15, cron: 30) |
+| `DELEGATION_MODE` | `none` | `none` (single-agent) or `auto` (multi-agent delegation) |
+| `MAX_SUB_AGENTS` | `3` | Maximum concurrent sub-agents (1-10) |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ### Agent Template Variables
@@ -155,6 +174,7 @@ The plugin registers with cicaddy via Python entry points:
 - `cicaddy.settings_loader` - GitLab-specific settings
 - `cicaddy.cli_args` - GitLab CLI arguments
 - `cicaddy.validators` - GitLab configuration validation
+- `cicaddy.delegation_blocked_tools` - Side-effect tools blocked for sub-agents
 
 ## Running Locally
 

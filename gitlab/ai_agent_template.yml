@@ -75,6 +75,16 @@
 #     AI_TASK_FILE: ".gitlab/prompts/mr_code_review.yml"
 #     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 #
+# DELEGATED REVIEW SETUP (AI triage + parallel specialist reviewers):
+# ai_delegated_review:
+#   extends: .ai_agent_template
+#   variables:
+#     AI_PROVIDER: "gemini"
+#     GEMINI_API_KEY: $GEMINI_API_KEY
+#     DELEGATION_MODE: "auto"
+#     MAX_SUB_AGENTS: "3"
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#
 # BRANCH REVIEW SETUP (Analyzes branch changes against target branch):
 # ai_branch_review:
 #   extends: .ai_agent_template
@@ -124,6 +134,11 @@
 
     # Iterative execution configuration
     MAX_INFER_ITERS: "15"
+
+    # Sub-Agent Delegation (requires cicaddy>=0.8.0)
+    # Set to "auto" to enable AI-powered multi-agent review
+    DELEGATION_MODE: "none"
+    MAX_SUB_AGENTS: "3"
 
     # Recovery mechanism configuration
     RECOVERY_ENABLED: "false"

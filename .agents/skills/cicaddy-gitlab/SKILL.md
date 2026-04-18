@@ -269,3 +269,99 @@ See [docs/running-locally.md](../../../docs/running-locally.md) for full example
 
 Templates use `AI_PROVIDER_RETRY_ATTEMPTS` and `AI_PROVIDER_RETRY_DELAY_SECONDS`
 for automatic retry on exit code 2.
+
+---
+
+## Sub-Agent Delegation
+
+cicaddy-gitlab v0.4.0+ supports AI-powered sub-agent delegation via cicaddy>=0.8.0.
+
+### How It Works
+
+When `DELEGATION_MODE=auto` is set in GitLab CI or the environment, the parent agent
+delegates to specialized sub-agents:
+
+1. **Triage AI call** — analyzes the MR diff and selects relevant specialist reviewers
+2. **Parallel execution** — selected sub-agents run concurrently with focused prompts
+3. **Aggregation** — results merged into a single MR comment with per-agent sections
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DELEGATION_MODE` | `none` | `none` (single-agent) or `auto` (multi-agent) |
+| `MAX_SUB_AGENTS` | `3` | Max concurrent sub-agents (1-10) |
+| `SUB_AGENT_MAX_ITERS` | `5` | Iterations per sub-agent (1-15) |
+| `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Custom agent YAML directory |
+| `TRIAGE_PROMPT` | (empty) | Custom triage instructions |
+
+CLI flags:
+```bash
+cicaddy run --env-file .env.mr --delegation-mode auto --max-sub-agents 2
+```
+
+### GitLab CI Example
+
+```yaml
+ai_delegated_review:
+  extends: .ai_agent_template
+  variables:
+    AI_PROVIDER: "gemini"
+    GEMINI_API_KEY: $GEMINI_API_KEY
+    DELEGATION_MODE: "auto"
+    MAX_SUB_AGENTS: "3"
+```
+
+### Plugin Hooks
+
+The cicaddy-gitlab plugin provides:
+
+- **`cicaddy.delegation_blocked_tools` entry point** — blocks GitLab write operations
+  (posting MR notes, merging MRs, managing labels, creating pipelines, etc.) so that
+  sub-agents only perform analysis and cannot modify the GitLab state
+
+- **Delegation metadata in MR comments** — when delegation is active, the MR comment
+  includes a collapsible `<details>` block showing:
+  - Number of sub-agents that succeeded/failed
+  - Total execution time
+  - Sub-agent names and triage rationale
+
+### Built-in Sub-Agents
+
+For MR review (`merge_request` and `branch_review` agent types):
+
+- `security-reviewer` — auth, crypto, secrets, injection, access control
+- `architecture-reviewer` — design patterns, module boundaries, interfaces
+- `api-reviewer` — endpoints, schemas, versioning, backward compat
+- `database-reviewer` — queries, migrations, schema changes, indexes
+- `ui-reviewer` — frontend components, accessibility, UX
+- `devops-reviewer` — CI/CD pipelines, Docker, deployment configs
+- `performance-reviewer` — algorithms, caching, concurrency, resource usage
+- `general-reviewer` — catch-all for anything not covered above
+
+For scheduled tasks (`task` agent type):
+
+- `data-analyst` — data processing, statistics, pattern recognition
+- `report-writer` — report generation, formatting, documentation
+- `general-task` — general-purpose catch-all
+
+### Custom Sub-Agents
+
+Define custom sub-agents in `.agents/delegation/review/` or `task/` using YAML:
+
+```yaml
+# .agents/delegation/review/compliance-reviewer.yaml
+name: compliance-reviewer
+agent_type: review
+persona: compliance engineer specializing in regulatory requirements
+description: Reviews changes for regulatory and compliance impact
+categories: [security, configuration]
+constraints:
+  - Focus on regulatory compliance (SOC2, GDPR, HIPAA)
+  - Flag any PII handling changes
+priority: 15
+```
+
+Or via `DELEGATION_AGENTS` environment variable (JSON array).
+
+See [docs/delegation.md](../../../docs/delegation.md) and cicaddy's [sub-agent delegation docs](https://github.com/waynesun09/cicaddy/blob/main/docs/sub-agent-delegation.md) for full details.
