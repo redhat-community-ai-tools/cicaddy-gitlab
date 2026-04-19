@@ -89,6 +89,52 @@ class TestSettings:
         assert settings.merge_request_iid == "42"
         assert settings.project_id == "my-group/my-project"
 
+    @patch.dict(
+        os.environ,
+        {
+            "CI_API_V4_URL": "https://gitlab.com/api/v4",
+            "AI_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+            "MCP_SERVERS_CONFIG": "[]",
+        },
+        clear=False,
+    )
+    def test_post_mr_comment_defaults_true(self):
+        """Test that post_mr_comment defaults to True."""
+        from cicaddy_gitlab.config.settings import Settings
+
+        settings = Settings(
+            ai_provider="gemini",
+            gemini_api_key="test-key",
+            mcp_servers_config="[]",
+            gitlab_api_url="https://gitlab.com/api/v4",
+        )
+        assert settings.post_mr_comment is True
+
+    @patch.dict(
+        os.environ,
+        {
+            "CI_API_V4_URL": "https://gitlab.com/api/v4",
+            "AI_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+            "MCP_SERVERS_CONFIG": "[]",
+            "POST_MR_COMMENT": "false",
+        },
+        clear=False,
+    )
+    def test_post_mr_comment_can_be_disabled(self):
+        """Test that POST_MR_COMMENT=false disables comment posting."""
+        from cicaddy_gitlab.config.settings import Settings
+
+        settings = Settings(
+            ai_provider="gemini",
+            gemini_api_key="test-key",
+            mcp_servers_config="[]",
+            gitlab_api_url="https://gitlab.com/api/v4",
+            post_mr_comment=False,
+        )
+        assert settings.post_mr_comment is False
+
 
 class TestLoadSettings:
     """Test load_settings function."""
@@ -138,3 +184,26 @@ class TestLoadSettings:
 
             settings = load_settings()
             assert settings.gitlab_token == "job-token-123"
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+            "POST_MR_COMMENT": "false",
+        },
+        clear=False,
+    )
+    def test_load_settings_respects_post_mr_comment_false(self):
+        """Test that load_settings parses POST_MR_COMMENT=false."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.post_mr_comment is False

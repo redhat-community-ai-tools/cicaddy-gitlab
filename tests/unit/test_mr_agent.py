@@ -1,15 +1,57 @@
-"""Tests for MergeRequestAgent delegation metadata in comments."""
+"""Tests for MergeRequestAgent delegation metadata and comment posting."""
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from cicaddy_gitlab.agent.mr_agent import MergeRequestAgent
 
 
-def _make_agent():
+def _make_agent(**settings_overrides):
     agent = MergeRequestAgent.__new__(MergeRequestAgent)
     agent.merge_request_iid = "42"
     agent.settings = MagicMock()
+    agent.settings.post_mr_comment = True
+    agent.platform_analyzer = MagicMock()
+    agent.platform_analyzer.post_merge_request_note = AsyncMock()
+    agent.slack_notifier = None
+    for k, v in settings_overrides.items():
+        setattr(agent.settings, k, v)
     return agent
+
+
+class TestPostMrCommentGuard:
+    """Test POST_MR_COMMENT guard on send_notifications."""
+
+    @pytest.mark.asyncio
+    async def test_posts_comment_when_enabled(self):
+        """Comment is posted when post_mr_comment=True (default)."""
+        agent = _make_agent()
+        await agent.send_notifications(
+            {"report_id": "r1"}, {"ai_analysis": "looks good"}
+        )
+        agent.platform_analyzer.post_merge_request_note.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_skips_comment_when_disabled(self):
+        """Comment is NOT posted when post_mr_comment=False."""
+        agent = _make_agent(post_mr_comment=False)
+        await agent.send_notifications(
+            {"report_id": "r1"}, {"ai_analysis": "looks good"}
+        )
+        agent.platform_analyzer.post_merge_request_note.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_skips_comment_logs_message(self):
+        """Skipping posts a log message."""
+        agent = _make_agent(post_mr_comment=False)
+        with patch("cicaddy_gitlab.agent.mr_agent.logger") as mock_logger:
+            await agent.send_notifications(
+                {"report_id": "r1"}, {"ai_analysis": "review"}
+            )
+            mock_logger.info.assert_any_call(
+                "Skipping MR comment posting (POST_MR_COMMENT=false)"
+            )
 
 
 class TestFormatGitlabCommentDelegation:

@@ -54,6 +54,16 @@ class Settings(CoreSettings):
     )
     gitlab_user_name: Optional[str] = Field(None, validation_alias="GITLAB_USER_NAME")
 
+    # Comment posting control
+    post_mr_comment: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("POST_MR_COMMENT"),
+        description=(
+            "Whether to post analysis results as MR/commit comment. "
+            "Set to false for local testing to avoid accidental comment posting."
+        ),
+    )
+
 
 def load_settings() -> Settings:
     """Load settings from environment variables with GitLab CI defaults."""
@@ -160,6 +170,11 @@ def load_settings() -> Settings:
         env_data["merge_request_title"] = os.getenv("CI_MERGE_REQUEST_TITLE")
     if os.getenv("GITLAB_USER_NAME"):
         env_data["gitlab_user_name"] = os.getenv("GITLAB_USER_NAME")
+
+    # Comment posting control
+    post_mr = os.getenv("POST_MR_COMMENT", "").strip()
+    if post_mr:
+        env_data["post_mr_comment"] = post_mr.lower() in ("true", "1", "yes")
 
     # AI provider configuration
     if os.getenv("AI_PROVIDER"):
