@@ -36,7 +36,33 @@ def _make_agent(**settings_overrides):
     agent.platform_analyzer.post_commit_note = AsyncMock(return_value={"id": 20})
     agent.platform_analyzer.find_bot_note_on_branch = AsyncMock(return_value=None)
     agent.platform_analyzer.delete_commit_note = AsyncMock()
+    agent.slack_notifier = None
     return agent
+
+
+class TestPostMrCommentGuard:
+    """Test POST_MR_COMMENT guard on branch agent send_notifications."""
+
+    @pytest.mark.asyncio
+    async def test_posts_comment_when_enabled(self):
+        agent = _make_agent(merge_request_iid="99", post_mr_comment=True)
+
+        await agent.send_notifications(
+            {"report_id": "r1"}, {"ai_analysis": "ok", "status": "success"}
+        )
+
+        agent.platform_analyzer.post_merge_request_note.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_skips_comment_when_disabled(self):
+        agent = _make_agent(merge_request_iid="99", post_mr_comment=False)
+
+        await agent.send_notifications(
+            {"report_id": "r1"}, {"ai_analysis": "ok", "status": "success"}
+        )
+
+        agent.platform_analyzer.post_merge_request_note.assert_not_awaited()
+        agent.platform_analyzer.post_commit_note.assert_not_awaited()
 
 
 class TestPostGitlabComment:

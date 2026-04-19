@@ -45,6 +45,7 @@ def get_env_vars():
         "CI_PROJECT_NAME",
         "CI_COMMIT_SHA",
         "CI_PIPELINE_ID",
+        "POST_MR_COMMENT",
     ]
 
 
@@ -57,6 +58,7 @@ def config_section(config, mask_fn, sensitive_vars):
         "CI_PROJECT_ID",
         "CI_PROJECT_NAME",
         "CI_MERGE_REQUEST_IID",
+        "POST_MR_COMMENT",
     ]:
         value = config.get(var)
         if var in sensitive_vars:

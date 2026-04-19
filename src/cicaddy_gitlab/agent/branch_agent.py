@@ -52,7 +52,10 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
             f"{self.source_branch} -> {self.target_branch}"
         )
         await super().send_notifications(report, analysis_result)
-        await self._post_gitlab_comment(report, analysis_result)
+        if self.settings.post_mr_comment:
+            await self._post_gitlab_comment(report, analysis_result)
+        else:
+            logger.info("Skipping GitLab comment posting (POST_MR_COMMENT=false)")
 
     def _get_bot_note_marker(self) -> str:
         """Return a branch-specific bot note marker."""
