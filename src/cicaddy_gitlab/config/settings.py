@@ -174,7 +174,18 @@ def load_settings() -> Settings:
     # Comment posting control
     post_mr = os.getenv("POST_MR_COMMENT", "").strip()
     if post_mr:
-        env_data["post_mr_comment"] = post_mr.lower() in ("true", "1", "yes")
+        post_mr_lower = post_mr.lower()
+        if post_mr_lower in ("true", "1", "yes"):
+            env_data["post_mr_comment"] = True
+        elif post_mr_lower in ("false", "0", "no"):
+            env_data["post_mr_comment"] = False
+        else:
+            logger.warning(
+                f"Unrecognized POST_MR_COMMENT value '{post_mr}' — "
+                "expected true/false/1/0/yes/no. Defaulting to true."
+            )
+            # Unset to prevent Pydantic from trying to parse invalid value
+            os.environ.pop("POST_MR_COMMENT", None)
 
     # AI provider configuration
     if os.getenv("AI_PROVIDER"):

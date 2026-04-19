@@ -151,6 +151,18 @@ Key variables: `TASK_TYPE`, `TASK_SCOPE`, `MAX_INFER_ITERS`, `MAX_EXECUTION_TIME
 - Type checking: `uv run ty check` (if available)
 - Format: `pre-commit run ruff-format --files <changed-files>`
 
+## Comment Posting Control
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POST_MR_COMMENT` | `true` | Whether to post analysis results as MR/commit comment. Set to `false` for local testing. |
+
+Accepted values: `true`/`false`, `1`/`0`, `yes`/`no` (case-insensitive). Unrecognized values log a warning and default to `true`.
+
+**Local development**: If you have `GITLAB_TOKEN` set (e.g., for `glab` CLI), add `POST_MR_COMMENT=false` to your `.env` file to prevent accidentally posting review comments to real MRs during local testing.
+
+**Note**: cicaddy-action defaults `POST_PR_COMMENT` to `false` (explicit opt-in) because GitHub Actions tokens are often personal access tokens. cicaddy-gitlab defaults to `true` to preserve backward compatibility with existing CI pipelines that expect comments to be posted automatically.
+
 ## Running Locally
 
 ```bash
@@ -166,6 +178,8 @@ uv run cicaddy run --env-file .env.local
 # Override settings via CLI
 uv run cicaddy run --env-file .env.local --ai-provider openai --verbose
 ```
+
+**Important**: When running locally with a valid `GITLAB_TOKEN`, always set `POST_MR_COMMENT=false` in your env file to avoid posting to real MRs.
 
 ## Release Process
 

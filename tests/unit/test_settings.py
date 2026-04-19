@@ -207,3 +207,31 @@ class TestLoadSettings:
 
             settings = load_settings()
             assert settings.post_mr_comment is False
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+            "POST_MR_COMMENT": "maybe",
+        },
+        clear=False,
+    )
+    def test_load_settings_warns_on_unrecognized_post_mr_comment(self):
+        """Test that unrecognized POST_MR_COMMENT values log a warning and default to true."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            with patch("cicaddy_gitlab.config.settings.logger") as mock_logger:
+                from cicaddy_gitlab.config.settings import load_settings
+
+                settings = load_settings()
+                assert settings.post_mr_comment is True
+                mock_logger.warning.assert_any_call(
+                    "Unrecognized POST_MR_COMMENT value 'maybe' — "
+                    "expected true/false/1/0/yes/no. Defaulting to true."
+                )
