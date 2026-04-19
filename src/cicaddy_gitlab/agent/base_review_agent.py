@@ -131,7 +131,14 @@ class BaseReviewAgent(BaseAIAgent):
                 "error": str(e),
             }
 
-    # Delegation hooks — forward to cicaddy core's BaseReviewAgent
+    # Delegation hooks — forward to cicaddy core's BaseReviewAgent.
+    #
+    # This class does NOT inherit from cicaddy's BaseReviewAgent (it inherits
+    # from cicaddy_gitlab's BaseAIAgent to get GitLab platform integration).
+    # Standard MRO cannot provide both, so we forward review-specific hooks
+    # as explicit unbound method calls. This keeps all delegation logic in
+    # cicaddy core. These methods must not call super() — they are leaf
+    # implementations that only access attributes available on any BaseAIAgent.
 
     def _get_agent_type(self) -> str:
         """Review agents use the 'review' delegation registry."""
