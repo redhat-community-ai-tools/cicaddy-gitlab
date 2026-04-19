@@ -6,6 +6,10 @@ required because cicaddy's BaseAIAgent has a no-op _setup_platform_integration()
 while cicaddy_gitlab's BaseAIAgent overrides it to initialize the GitLabAnalyzer
 for posting MR comments and accessing the GitLab API.
 
+Delegation hooks (_get_agent_type, _get_delegation_context, _post_process_plan)
+are forwarded from cicaddy's BaseReviewAgent to keep review-specific delegation
+logic in one place.
+
 MRO: MergeRequestAgent -> BaseReviewAgent (this) -> BaseAIAgent (cicaddy_gitlab)
      -> BaseAIAgent (cicaddy) -> ABC
 """
@@ -126,6 +130,32 @@ class BaseReviewAgent(BaseAIAgent):
                 "has_changes": False,
                 "error": str(e),
             }
+
+    # Delegation hooks — forward to cicaddy core's BaseReviewAgent
+
+    def _get_agent_type(self) -> str:
+        """Review agents use the 'review' delegation registry."""
+        from cicaddy.agent.base_review_agent import (
+            BaseReviewAgent as _CoreReviewAgent,
+        )
+
+        return _CoreReviewAgent._get_agent_type(self)
+
+    def _get_delegation_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Shape context for review delegation triage."""
+        from cicaddy.agent.base_review_agent import (
+            BaseReviewAgent as _CoreReviewAgent,
+        )
+
+        return _CoreReviewAgent._get_delegation_context(self, context)
+
+    def _post_process_plan(self, plan: Any, registry: Dict[str, Any]) -> Any:
+        """Ensure general-reviewer is always included in review plans."""
+        from cicaddy.agent.base_review_agent import (
+            BaseReviewAgent as _CoreReviewAgent,
+        )
+
+        return _CoreReviewAgent._post_process_plan(self, plan, registry)
 
     def _validate_initialized(self):
         """Validate that the agent is properly initialized."""
