@@ -52,8 +52,7 @@ class BranchReviewAgent(BaseReviewAgent, CoreBranchReviewAgent):
             f"{self.source_branch} -> {self.target_branch}"
         )
         await super().send_notifications(report, analysis_result)
-        post_comment = getattr(self.settings, "post_mr_comment", True)
-        if post_comment:
+        if self.settings.post_mr_comment:
             await self._post_gitlab_comment(report, analysis_result)
         else:
             logger.info("Skipping GitLab comment posting (POST_MR_COMMENT=false)")

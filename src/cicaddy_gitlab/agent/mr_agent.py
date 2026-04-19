@@ -230,8 +230,7 @@ Security Analysis Focus:
         self, report: Dict[str, Any], analysis_result: Dict[str, Any]
     ):
         """Send notifications via GitLab comment and Slack."""
-        post_comment = getattr(self.settings, "post_mr_comment", True)
-        if post_comment:
+        if self.settings.post_mr_comment:
             try:
                 # Post results to GitLab MR
                 await self._post_gitlab_comment(report, analysis_result)
@@ -239,7 +238,7 @@ Security Analysis Focus:
             except Exception as e:
                 logger.error(f"Failed to post GitLab comment: {e}", exc_info=True)
         else:
-            logger.info("Skipping MR comment posting (POST_MR_COMMENT=false)")
+            logger.info("Skipping GitLab comment posting (POST_MR_COMMENT=false)")
 
         # Send Slack notification using parent class method
         await super().send_notifications(report, analysis_result)

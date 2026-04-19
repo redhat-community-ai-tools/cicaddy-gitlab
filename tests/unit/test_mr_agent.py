@@ -50,7 +50,7 @@ class TestPostMrCommentGuard:
                 {"report_id": "r1"}, {"ai_analysis": "review"}
             )
             mock_logger.info.assert_any_call(
-                "Skipping MR comment posting (POST_MR_COMMENT=false)"
+                "Skipping GitLab comment posting (POST_MR_COMMENT=false)"
             )
 
 
