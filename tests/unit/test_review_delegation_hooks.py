@@ -2,10 +2,24 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 from cicaddy.delegation.registry import SubAgentSpec
 from cicaddy.delegation.triage import DelegationEntry, DelegationPlan
 
 from cicaddy_gitlab.agent.base_review_agent import BaseReviewAgent
+
+# _post_process_plan exists in cicaddy core >= 0.9.0 (PR #50).
+# CI may install an older release; skip tests that depend on it.
+_has_post_process = hasattr(
+    __import__(
+        "cicaddy.agent.base_review_agent", fromlist=["BaseReviewAgent"]
+    ).BaseReviewAgent,
+    "_post_process_plan",
+)
+_skip_no_post_process = pytest.mark.skipif(
+    not _has_post_process,
+    reason="cicaddy core missing _post_process_plan (needs >= 0.9.0)",
+)
 
 
 def _make_review_agent():
@@ -60,6 +74,7 @@ class TestDelegationHookForwarding:
         assert result["mr_title"] == "Fix auth"
         assert result["diff_lines"] == 4
 
+    @_skip_no_post_process
     def test_post_process_plan_injects_general_reviewer(self):
         """_post_process_plan should inject general-reviewer when missing."""
         agent = _make_review_agent()
@@ -100,6 +115,7 @@ class TestDelegationHookForwarding:
         assert result.entries[0].agent_name == "security-reviewer"
         assert result.entries[1].agent_name == "general-reviewer"
 
+    @_skip_no_post_process
     def test_post_process_plan_no_duplicate(self):
         """Should not add general-reviewer if already present."""
         agent = _make_review_agent()
