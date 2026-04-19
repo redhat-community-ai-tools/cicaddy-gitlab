@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cicaddy-gitlab"
-version = "0.5.1"
+version = "0.6.0"
 description = "GitLab platform plugin for cicaddy AI agent"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,7 +27,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "cicaddy>=0.8.0",
+    "cicaddy>=0.10.0",
     "python-gitlab>=4.4.0",
 ]
 
