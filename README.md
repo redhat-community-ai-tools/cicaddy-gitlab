@@ -52,7 +52,45 @@ ai_code_review:
     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 ```
 
-Delegation is enabled by default — the agent triages the diff and spawns specialist sub-agents (security, performance, etc.) in parallel. Set `DELEGATION_MODE: "none"` for single-agent review. See [docs/delegation.md](docs/delegation.md) for details.
+The CI template sets `DELEGATION_MODE: "auto"`, which triages the diff and spawns specialist sub-agents (security, performance, etc.) in parallel. Set `DELEGATION_MODE: "none"` for single-agent review. You can add custom sub-agents to the pool alongside the defaults — see [docs/delegation.md](docs/delegation.md) for details.
+
+#### Custom Sub-Agents
+
+Add your own specialist reviewers by placing YAML files in `.agents/delegation/review/`:
+
+```yaml
+# .agents/delegation/review/compliance-reviewer.yaml
+name: compliance-reviewer
+agent_type: review
+persona: compliance engineer specializing in regulatory requirements
+description: Reviews changes for regulatory and compliance impact
+categories: [security, configuration]
+constraints:
+  - Focus on regulatory compliance (SOC2, GDPR, HIPAA)
+  - Flag any PII handling changes
+output_sections:
+  - Compliance Impact
+  - Regulatory Risks
+priority: 15
+```
+
+Or define agents inline via the `DELEGATION_AGENTS` CI/CD variable:
+
+```yaml
+ai_code_review:
+  extends: .ai_agent_template
+  variables:
+    AI_PROVIDER: "gemini"
+    GEMINI_API_KEY: $GEMINI_API_KEY
+    DELEGATION_MODE: "auto"
+    DELEGATION_AGENTS: >-
+      [{"name": "compliance-reviewer", "agent_type": "review",
+        "persona": "compliance engineer",
+        "description": "Reviews regulatory and compliance impact",
+        "categories": ["security", "configuration"]}]
+```
+
+Custom agents with the same name as a built-in replace it. See [docs/delegation.md](docs/delegation.md) for the full YAML format, merge precedence, and tool filtering.
 
 ### Scheduled Analysis with MCP Tools
 
@@ -135,9 +173,12 @@ custom_analysis:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_TASKS` | `code_review` | Comma-separated task list |
-| `DELEGATION_MODE` | `auto` | `auto` (multi-agent delegation) or `none` (single-agent) |
+| `DELEGATION_MODE` | `none` | `none` (single-agent) or `auto` (multi-agent delegation). CI template sets `auto`. |
 | `MAX_SUB_AGENTS` | `3` | Max concurrent sub-agents (1-10) |
 | `SUB_AGENT_MAX_ITERS` | `10` | Max iterations per sub-agent (1-15) |
+| `DELEGATION_AGENTS` | (empty) | JSON config for custom sub-agent definitions |
+| `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Directory for user-defined sub-agent YAML files |
+| `TRIAGE_PROMPT` | (empty) | Custom instructions for the triage AI |
 | `GIT_DIFF_CONTEXT_LINES` | `10` | Context lines in diff |
 | `GIT_WORKING_DIRECTORY` | `.` | Git repo directory |
 

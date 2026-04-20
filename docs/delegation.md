@@ -41,7 +41,7 @@ uv run cicaddy run --env-file .env.mr --delegation-mode auto --max-sub-agents 2
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DELEGATION_MODE` | `auto` | `auto` (AI-powered delegation) or `none` (single-agent) |
+| `DELEGATION_MODE` | `none` | `none` (single-agent) or `auto` (AI-powered delegation). CI template sets `auto`. |
 | `MAX_SUB_AGENTS` | `3` | Maximum concurrent sub-agents (1-10) |
 | `SUB_AGENT_MAX_ITERS` | `10` | Max inference iterations per sub-agent (1-15) |
 | `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Directory for user-defined sub-agent YAML files |
