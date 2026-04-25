@@ -210,6 +210,10 @@ def load_settings() -> Settings:
         )
     if os.getenv("CLOUD_ML_REGION"):
         env_data["cloud_ml_region"] = os.getenv("CLOUD_ML_REGION")
+    if os.getenv("GOOGLE_CLOUD_PROJECT"):
+        env_data["google_cloud_project"] = os.getenv("GOOGLE_CLOUD_PROJECT")
+    if os.getenv("GOOGLE_CLOUD_LOCATION"):
+        env_data["google_cloud_location"] = os.getenv("GOOGLE_CLOUD_LOCATION")
     if os.getenv("AZURE_OPENAI_KEY"):
         env_data["azure_openai_key"] = os.getenv("AZURE_OPENAI_KEY")
     if os.getenv("AZURE_ENDPOINT"):

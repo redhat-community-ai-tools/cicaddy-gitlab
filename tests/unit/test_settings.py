@@ -235,3 +235,51 @@ class TestLoadSettings:
                     "Unrecognized POST_MR_COMMENT value 'maybe' — "
                     "expected true/false/1/0/yes/no. Defaulting to true."
                 )
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "gemini-vertex",
+            "GOOGLE_CLOUD_PROJECT": "my-gcp-project",
+            "GOOGLE_CLOUD_LOCATION": "us-central1",
+        },
+        clear=False,
+    )
+    def test_load_settings_passes_google_cloud_project(self):
+        """Test that GOOGLE_CLOUD_PROJECT is passed through to settings."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.google_cloud_project == "my-gcp-project"
+            assert settings.google_cloud_location == "us-central1"
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "gemini-vertex",
+            "GOOGLE_CLOUD_PROJECT": "my-gcp-project",
+        },
+        clear=False,
+    )
+    def test_load_settings_google_cloud_location_defaults(self):
+        """Test that GOOGLE_CLOUD_LOCATION defaults to 'global' when not set."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+        env.pop("GOOGLE_CLOUD_LOCATION", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.google_cloud_project == "my-gcp-project"
+            assert settings.google_cloud_location == "global"
