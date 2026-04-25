@@ -244,7 +244,7 @@
           echo "ERROR: AI_PROVIDER='anthropic-vertex' requires ANTHROPIC_VERTEX_PROJECT_ID or GOOGLE_CLOUD_PROJECT to be set"
           exit 3
         fi
-        echo "Claude Vertex provider configured (location: ${GOOGLE_CLOUD_LOCATION:-${CLOUD_ML_REGION:-us-east5}})"
+        echo "Claude Vertex provider configured (location: ${CLOUD_ML_REGION:-${GOOGLE_CLOUD_LOCATION:-us-east5}})"
       elif [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           echo "ERROR: AI_PROVIDER='$AI_PROVIDER' requires ANTHROPIC_API_KEY to be set"

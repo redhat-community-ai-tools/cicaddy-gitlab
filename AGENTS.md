@@ -43,7 +43,7 @@ Detector priority 40 ensures GitLab detection runs before cicaddy's built-in CI 
 
 ### Dependencies
 
-- Depends on `cicaddy>=0.8.0` (core library) and `python-gitlab>=4.4.0`
+- Depends on `cicaddy>=0.10.0` (core library) and `python-gitlab>=4.4.0`
 - Follows the same agent/factory patterns as the core library
 - Extends `BaseAIAgent` and `BaseReviewAgent` from cicaddy
 

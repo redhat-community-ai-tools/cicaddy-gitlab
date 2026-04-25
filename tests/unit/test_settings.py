@@ -283,3 +283,74 @@ class TestLoadSettings:
             settings = load_settings()
             assert settings.google_cloud_project == "my-gcp-project"
             assert settings.google_cloud_location == "global"
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+        },
+        clear=False,
+    )
+    def test_load_settings_google_cloud_project_absent(self):
+        """Test that GOOGLE_CLOUD_PROJECT absent results in None."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+        env.pop("GOOGLE_CLOUD_PROJECT", None)
+        env.pop("GOOGLE_CLOUD_LOCATION", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.google_cloud_project is None
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+            "GOOGLE_CLOUD_PROJECT": "",
+        },
+        clear=False,
+    )
+    def test_load_settings_google_cloud_project_empty_string(self):
+        """Test that empty string GOOGLE_CLOUD_PROJECT is not passed through."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.google_cloud_project is None
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "anthropic-vertex",
+            "GOOGLE_CLOUD_PROJECT": "my-gcp-project",
+            "ANTHROPIC_VERTEX_PROJECT_ID": "my-vertex-project",
+        },
+        clear=False,
+    )
+    def test_load_settings_anthropic_vertex_with_google_cloud_project(self):
+        """Test anthropic-vertex provider uses GOOGLE_CLOUD_PROJECT for settings."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.google_cloud_project == "my-gcp-project"
+            assert settings.anthropic_vertex_project_id == "my-vertex-project"
