@@ -57,7 +57,7 @@
 #   variables:
 #     AI_PROVIDER: "anthropic-vertex"
 #     ANTHROPIC_VERTEX_PROJECT_ID: $ANTHROPIC_VERTEX_PROJECT_ID
-#     GOOGLE_CLOUD_LOCATION: "us-east5"
+#     GOOGLE_CLOUD_LOCATION: "global"
 #     AI_MODEL: "claude-sonnet-4-6"
 #     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 #
@@ -208,7 +208,7 @@
           echo "ERROR: AI_PROVIDER='anthropic-vertex' requires ANTHROPIC_VERTEX_PROJECT_ID or GOOGLE_CLOUD_PROJECT to be set"
           exit 3
         fi
-        echo "Claude Vertex provider configured (location: ${CLOUD_ML_REGION:-${GOOGLE_CLOUD_LOCATION:-us-east5}})"
+        echo "Claude Vertex provider configured (location: ${CLOUD_ML_REGION:-${GOOGLE_CLOUD_LOCATION:-global}})"
       elif [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           echo "ERROR: AI_PROVIDER='$AI_PROVIDER' requires ANTHROPIC_API_KEY to be set"
