@@ -90,7 +90,7 @@ Uses Google Cloud ADC for authentication — no API key needed. Set `GOOGLE_APPL
 variables:
   AI_PROVIDER: "anthropic-vertex"
   ANTHROPIC_VERTEX_PROJECT_ID: $ANTHROPIC_VERTEX_PROJECT_ID
-  CLOUD_ML_REGION: "us-east5"  # default
+  GOOGLE_CLOUD_LOCATION: "global"
   AI_MODEL: "claude-sonnet-4-6"
 ```
 

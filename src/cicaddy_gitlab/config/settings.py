@@ -209,7 +209,10 @@ def load_settings() -> Settings:
             "ANTHROPIC_VERTEX_PROJECT_ID"
         )
     if os.getenv("CLOUD_ML_REGION"):
-        env_data["cloud_ml_region"] = os.getenv("CLOUD_ML_REGION")
+        logger.warning(
+            "CLOUD_ML_REGION is deprecated and ignored; "
+            "use GOOGLE_CLOUD_LOCATION instead"
+        )
     gcp_project = os.getenv("GOOGLE_CLOUD_PROJECT")
     if gcp_project:
         env_data["google_cloud_project"] = gcp_project
