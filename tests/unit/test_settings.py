@@ -377,3 +377,32 @@ class TestLoadSettings:
             settings = load_settings()
             assert settings.google_cloud_project == "my-gcp-project"
             assert settings.anthropic_vertex_project_id == "my-vertex-project"
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "anthropic-vertex",
+            "ANTHROPIC_VERTEX_PROJECT_ID": "my-vertex-project",
+            "GOOGLE_CLOUD_LOCATION": "us-central1",
+            "CLOUD_ML_REGION": "us-east5",
+        },
+        clear=False,
+    )
+    def test_load_settings_cloud_ml_region_deprecated_and_ignored(self):
+        """Test that CLOUD_ML_REGION is ignored with a deprecation warning."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            with patch("cicaddy_gitlab.config.settings.logger") as mock_logger:
+                from cicaddy_gitlab.config.settings import load_settings
+
+                settings = load_settings()
+                mock_logger.warning.assert_any_call(
+                    "CLOUD_ML_REGION is deprecated and ignored; "
+                    "use GOOGLE_CLOUD_LOCATION instead"
+                )
+                assert settings.google_cloud_location == "us-central1"
