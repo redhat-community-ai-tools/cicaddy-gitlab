@@ -337,6 +337,29 @@ class TestLoadSettings:
             "GITLAB_TOKEN": "test-token",
             "CI_SERVER_URL": "https://gitlab.com",
             "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+            "GOOGLE_CLOUD_LOCATION": "",
+        },
+        clear=False,
+    )
+    def test_load_settings_google_cloud_location_empty_string(self):
+        """Test that empty string GOOGLE_CLOUD_LOCATION falls back to default."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.google_cloud_location == "global"
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
             "AI_PROVIDER": "anthropic-vertex",
             "GOOGLE_CLOUD_PROJECT": "my-gcp-project",
             "ANTHROPIC_VERTEX_PROJECT_ID": "my-vertex-project",
