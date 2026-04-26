@@ -242,6 +242,7 @@
             if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$GOOGLE_APPLICATION_CREDENTIALS" 2>/dev/null; then
               echo "Decoding base64-encoded credentials file..."
               _DECODED_CREDS=$(mktemp)
+              chmod 600 "$_DECODED_CREDS"
               base64 -d < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS" 2>/dev/null || base64 --decode < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS"
               if python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$_DECODED_CREDS" 2>/dev/null; then
                 export GOOGLE_APPLICATION_CREDENTIALS="$_DECODED_CREDS"
