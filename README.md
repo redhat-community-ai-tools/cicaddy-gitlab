@@ -159,7 +159,7 @@ custom_analysis:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AI_PROVIDER` | `gemini` | AI provider (gemini, openai, claude, anthropic-vertex) |
+| `AI_PROVIDER` | `gemini` | AI provider (gemini, openai, claude, gemini-vertex, anthropic-vertex) |
 | `AI_MODEL` | `gemini-3-flash-preview` | Model to use |
 | `MCP_SERVERS_CONFIG` | `[]` | JSON array of MCP server configs |
 | `AI_TASK_FILE` | (empty) | Path to DSPy task YAML file |
