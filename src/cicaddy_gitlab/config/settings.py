@@ -209,7 +209,21 @@ def load_settings() -> Settings:
             "ANTHROPIC_VERTEX_PROJECT_ID"
         )
     if os.getenv("CLOUD_ML_REGION"):
-        env_data["cloud_ml_region"] = os.getenv("CLOUD_ML_REGION")
+        logger.warning(
+            "CLOUD_ML_REGION is deprecated and ignored; "
+            "use GOOGLE_CLOUD_LOCATION instead"
+        )
+        os.environ.pop("CLOUD_ML_REGION", None)
+    gcp_project = os.getenv("GOOGLE_CLOUD_PROJECT")
+    if gcp_project:
+        env_data["google_cloud_project"] = gcp_project
+    elif gcp_project == "":
+        os.environ.pop("GOOGLE_CLOUD_PROJECT", None)
+    gcp_location = os.getenv("GOOGLE_CLOUD_LOCATION")
+    if gcp_location:
+        env_data["google_cloud_location"] = gcp_location
+    elif gcp_location == "":
+        os.environ.pop("GOOGLE_CLOUD_LOCATION", None)
     if os.getenv("AZURE_OPENAI_KEY"):
         env_data["azure_openai_key"] = os.getenv("AZURE_OPENAI_KEY")
     if os.getenv("AZURE_ENDPOINT"):

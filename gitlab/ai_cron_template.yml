@@ -43,7 +43,7 @@
 # daily_analysis:
 #   extends: .ai_cron_template
 #   variables:
-#     AI_PROVIDER: "gemini"  # or "openai", "claude"
+#     AI_PROVIDER: "gemini"  # or "openai", "claude", "gemini-vertex", "anthropic-vertex"
 #     GEMINI_API_KEY: $GEMINI_API_KEY
 #     MCP_SERVERS_CONFIG: >-
 #       [{"name": "my-mcp-server", "protocol": "http",
@@ -69,13 +69,28 @@
 #   rules:
 #     - if: $CI_PIPELINE_SOURCE == "schedule"
 #
+# VERTEX AI GEMINI SETUP (Google Cloud - uses ADC, no API key needed):
+# daily_analysis_vertex_gemini:
+#   extends: .ai_cron_template
+#   variables:
+#     AI_PROVIDER: "gemini-vertex"
+#     GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
+#     GOOGLE_CLOUD_LOCATION: "global"  # or specific region
+#     AI_MODEL: "gemini-3-flash-preview"
+#     MCP_SERVERS_CONFIG: "[]"
+#     AI_TASK_PROMPT: |
+#       Perform analysis using Gemini via Vertex AI.
+#     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#
 # VERTEX AI CLAUDE SETUP (Google Cloud - uses ADC, no API key needed):
-# daily_analysis_vertex:
+# daily_analysis_vertex_claude:
 #   extends: .ai_cron_template
 #   variables:
 #     AI_PROVIDER: "anthropic-vertex"
 #     ANTHROPIC_VERTEX_PROJECT_ID: $ANTHROPIC_VERTEX_PROJECT_ID
-#     CLOUD_ML_REGION: "us-east5"
+#     GOOGLE_CLOUD_LOCATION: "global"
 #     AI_MODEL: "claude-sonnet-4-6"
 #     MCP_SERVERS_CONFIG: "[]"
 #     AI_TASK_PROMPT: |
@@ -218,12 +233,18 @@
       echo "=== AI Provider Configuration Check ==="
       echo "AI_PROVIDER: ${AI_PROVIDER:-not_set}"
 
-      if [ "$AI_PROVIDER" = "anthropic-vertex" ]; then
-        if [ -z "$ANTHROPIC_VERTEX_PROJECT_ID" ]; then
-          echo "ERROR: AI_PROVIDER='anthropic-vertex' requires ANTHROPIC_VERTEX_PROJECT_ID to be set"
+      if [ "$AI_PROVIDER" = "gemini-vertex" ]; then
+        if [ -z "$GOOGLE_CLOUD_PROJECT" ]; then
+          echo "ERROR: AI_PROVIDER='gemini-vertex' requires GOOGLE_CLOUD_PROJECT to be set"
           exit 3
         fi
-        echo "Claude Vertex provider configured (region: ${CLOUD_ML_REGION:-us-east5})"
+        echo "Gemini Vertex provider configured (project: ${GOOGLE_CLOUD_PROJECT}, location: ${GOOGLE_CLOUD_LOCATION:-global})"
+      elif [ "$AI_PROVIDER" = "anthropic-vertex" ]; then
+        if [ -z "$ANTHROPIC_VERTEX_PROJECT_ID" ] && [ -z "$GOOGLE_CLOUD_PROJECT" ]; then
+          echo "ERROR: AI_PROVIDER='anthropic-vertex' requires ANTHROPIC_VERTEX_PROJECT_ID or GOOGLE_CLOUD_PROJECT to be set"
+          exit 3
+        fi
+        echo "Claude Vertex provider configured (project: ${ANTHROPIC_VERTEX_PROJECT_ID:-${GOOGLE_CLOUD_PROJECT:-not_set}}, location: ${GOOGLE_CLOUD_LOCATION:-global})"
       elif [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           echo "ERROR: AI_PROVIDER='$AI_PROVIDER' requires ANTHROPIC_API_KEY to be set"

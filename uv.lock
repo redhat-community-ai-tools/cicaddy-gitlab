@@ -439,7 +439,7 @@ wheels = [
 
 [[package]]
 name = "cicaddy"
-version = "0.7.0"
+version = "0.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
@@ -465,14 +465,14 @@ dependencies = [
     { name = "typing-extensions", marker = "python_full_version < '3.12'" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/96/3d23931a7d3da3ee2cfcade425c24319aeb3cd48a58a27b1aebdc7900cf6/cicaddy-0.7.0.tar.gz", hash = "sha256:063b40512aff2342afb8d129935ab60599689a834526b3bb853f5fb448ab647a", size = 272231, upload-time = "2026-04-17T16:21:08.97Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/65/01/888c9e1a1012016c6c2390008295021dac6d50063cc5a97179cd07759711/cicaddy-0.11.0.tar.gz", hash = "sha256:3aa228604297d58ac0905861ceac0cc5264f6a29bbe7a9edec1215eeb51908f8", size = 307997, upload-time = "2026-04-25T21:06:19.364Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/bf/c44b17209899089ccdb90b536e77dd3f7429848239e6195a5194a48922c2/cicaddy-0.7.0-py3-none-any.whl", hash = "sha256:b864e8ebb452664942a4a570a782b08e3bbf4d2a42f9966a9b7198c92776b052", size = 316346, upload-time = "2026-04-17T16:21:06.804Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/5a/2d2bf37d5c9fa5c79c3a6f4e649100bb51b958607b4fb4675273c083b86c/cicaddy-0.11.0-py3-none-any.whl", hash = "sha256:f411032cb37fa84ade39073ba7577a1e6d023ddabca0f6b68fd39b9f60bd6578", size = 358230, upload-time = "2026-04-25T21:06:17.849Z" },
 ]
 
 [[package]]
 name = "cicaddy-gitlab"
-version = "0.3.0"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "cicaddy" },
@@ -504,7 +504,7 @@ requires-dist = [
     { name = "aioresponses", marker = "extra == 'dev'", specifier = ">=0.7.8" },
     { name = "aioresponses", marker = "extra == 'test'", specifier = ">=0.7.8" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "cicaddy", specifier = ">=0.7.0" },
+    { name = "cicaddy", specifier = ">=0.11.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.4.0" },

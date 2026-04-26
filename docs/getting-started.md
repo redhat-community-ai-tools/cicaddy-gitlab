@@ -4,7 +4,7 @@
 
 - Python 3.11+
 - A GitLab instance (gitlab.com or self-hosted)
-- An AI provider API key (Gemini, OpenAI, or Claude)
+- An AI provider API key **or** Google Cloud ADC credentials (for Vertex AI providers)
 
 ## Installation
 
@@ -82,6 +82,18 @@ variables:
   AI_MODEL: "claude-sonnet-4-6"
 ```
 
+### Google Gemini via Vertex AI
+
+Uses Google Cloud ADC for authentication — no API key needed. Set `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key.
+
+```yaml
+variables:
+  AI_PROVIDER: "gemini-vertex"
+  GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
+  GOOGLE_CLOUD_LOCATION: "global"  # or specific region
+  AI_MODEL: "gemini-3-flash-preview"
+```
+
 ### Anthropic Claude via Vertex AI
 
 Uses Google Cloud ADC for authentication — no API key needed. Set `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key.
@@ -90,7 +102,7 @@ Uses Google Cloud ADC for authentication — no API key needed. Set `GOOGLE_APPL
 variables:
   AI_PROVIDER: "anthropic-vertex"
   ANTHROPIC_VERTEX_PROJECT_ID: $ANTHROPIC_VERTEX_PROJECT_ID
-  CLOUD_ML_REGION: "us-east5"  # default
+  GOOGLE_CLOUD_LOCATION: "global"
   AI_MODEL: "claude-sonnet-4-6"
 ```
 
@@ -120,7 +132,9 @@ All secrets should be stored as GitLab CI/CD variables (**Settings > CI/CD > Var
 | `CONTEXT7_API_KEY` | **Yes** | Recommended | MCP tool authentication |
 | `SLACK_WEBHOOK_URL` | **Yes** | Optional | Notification webhook |
 | `GITLAB_TOKEN` | **Yes** | Recommended | Only needed for enhanced permissions beyond `CI_JOB_TOKEN` |
-| `ANTHROPIC_VERTEX_PROJECT_ID` | **Yes** | Recommended | GCP project ID for Vertex AI Claude |
+| `ANTHROPIC_VERTEX_PROJECT_ID` | Optional | Recommended | GCP project ID for Vertex AI Claude |
+| `GOOGLE_CLOUD_PROJECT` | Optional | Recommended | GCP project ID for Vertex AI Gemini |
+| `GOOGLE_CLOUD_LOCATION` | No | Optional | GCP region for Vertex AI (defaults to `global`) |
 | `GOOGLE_APPLICATION_CREDENTIALS` | **File** | Recommended | GCP service account JSON key — use **File** type variable so GitLab writes it to disk and ADC picks it up automatically |
 | `CI_JOB_TOKEN` | Auto | Auto | Provided and masked by GitLab automatically — no setup needed |
 
