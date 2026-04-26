@@ -406,3 +406,28 @@ class TestLoadSettings:
                     "use GOOGLE_CLOUD_LOCATION instead"
                 )
                 assert settings.google_cloud_location == "us-central1"
+                assert settings.cloud_ml_region != "us-east5"
+
+    @patch.dict(
+        os.environ,
+        {
+            "GITLAB_TOKEN": "test-token",
+            "CI_SERVER_URL": "https://gitlab.com",
+            "CI_PROJECT_ID": "789",
+            "AI_PROVIDER": "gemini-vertex",
+            "GOOGLE_CLOUD_PROJECT": "my-gcp-project",
+        },
+        clear=False,
+    )
+    def test_load_settings_no_location_vars_defaults_to_global(self):
+        """Test that location defaults to 'global' when neither CLOUD_ML_REGION nor GOOGLE_CLOUD_LOCATION is set."""
+        env = os.environ.copy()
+        env.pop("CI_API_V4_URL", None)
+        env.pop("CLOUD_ML_REGION", None)
+        env.pop("GOOGLE_CLOUD_LOCATION", None)
+
+        with patch.dict(os.environ, env, clear=True):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.google_cloud_location == "global"

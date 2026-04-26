@@ -213,6 +213,7 @@ def load_settings() -> Settings:
             "CLOUD_ML_REGION is deprecated and ignored; "
             "use GOOGLE_CLOUD_LOCATION instead"
         )
+        os.environ.pop("CLOUD_ML_REGION", None)
     gcp_project = os.getenv("GOOGLE_CLOUD_PROJECT")
     if gcp_project:
         env_data["google_cloud_project"] = gcp_project

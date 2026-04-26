@@ -132,8 +132,8 @@ All secrets should be stored as GitLab CI/CD variables (**Settings > CI/CD > Var
 | `CONTEXT7_API_KEY` | **Yes** | Recommended | MCP tool authentication |
 | `SLACK_WEBHOOK_URL` | **Yes** | Optional | Notification webhook |
 | `GITLAB_TOKEN` | **Yes** | Recommended | Only needed for enhanced permissions beyond `CI_JOB_TOKEN` |
-| `ANTHROPIC_VERTEX_PROJECT_ID` | **Yes** | Recommended | GCP project ID for Vertex AI Claude |
-| `GOOGLE_CLOUD_PROJECT` | **Yes** | Recommended | GCP project ID for Vertex AI Gemini |
+| `ANTHROPIC_VERTEX_PROJECT_ID` | Optional | Recommended | GCP project ID for Vertex AI Claude |
+| `GOOGLE_CLOUD_PROJECT` | Optional | Recommended | GCP project ID for Vertex AI Gemini |
 | `GOOGLE_CLOUD_LOCATION` | No | Optional | GCP region for Vertex AI (defaults to `global`) |
 | `GOOGLE_APPLICATION_CREDENTIALS` | **File** | Recommended | GCP service account JSON key — use **File** type variable so GitLab writes it to disk and ADC picks it up automatically |
 | `CI_JOB_TOKEN` | Auto | Auto | Provided and masked by GitLab automatically — no setup needed |
