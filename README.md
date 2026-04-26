@@ -22,16 +22,17 @@ This automatically installs `cicaddy` core as a dependency and registers the Git
 
 ## Prerequisites
 
-Set up your AI provider API key as a GitLab CI/CD variable before adding the templates.
+Set up your AI provider credentials as a GitLab CI/CD variable before adding the templates.
 
-Using Gemini as an example:
+Using Gemini via Vertex AI as an example (recommended):
 
-1. Go to **Settings > CI/CD > Variables** in your GitLab project
-2. Click **Add variable**
-3. Set **Key** to `GEMINI_API_KEY`, paste your API key as **Value**
-4. Check **Mask variable**, then click **Add variable**
+1. Create a GCP service account with the **Vertex AI User** role and export its JSON key
+2. Base64-encode the key: `base64 < service-account-key.json | tr -d '\n'`
+3. Go to **Settings > CI/CD > Variables** in your GitLab project
+4. Add `GOOGLE_APPLICATION_CREDENTIALS` — paste the base64 string as **Value**, select **File** type, check **Mask variable** and **Hidden**
+5. Add `GOOGLE_CLOUD_PROJECT` — set to your GCP project ID, check **Mask variable**
 
-See [docs/getting-started.md](docs/getting-started.md) for other providers (OpenAI, Claude, Gemini Vertex AI, Anthropic Vertex AI) and full security best practices.
+For API key providers (`gemini`, `openai`, `claude`) or Claude via Vertex AI (`anthropic-vertex`), see [docs/getting-started.md](docs/getting-started.md) for full setup and security best practices.
 
 ## Quick Start
 
@@ -46,8 +47,8 @@ include:
 ai_code_review:
   extends: .ai_agent_template
   variables:
-    AI_PROVIDER: "gemini"
-    GEMINI_API_KEY: $GEMINI_API_KEY
+    AI_PROVIDER: "gemini-vertex"
+    GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
     DELEGATION_MODE: "auto"
     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 ```
@@ -80,8 +81,8 @@ Or define agents inline via the `DELEGATION_AGENTS` CI/CD variable:
 ai_code_review:
   extends: .ai_agent_template
   variables:
-    AI_PROVIDER: "gemini"
-    GEMINI_API_KEY: $GEMINI_API_KEY
+    AI_PROVIDER: "gemini-vertex"
+    GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
     DELEGATION_MODE: "auto"
     DELEGATION_AGENTS: >-
       [{"name": "compliance-reviewer", "agent_type": "review",
@@ -101,8 +102,8 @@ include:
 daily_analysis:
   extends: .ai_cron_template
   variables:
-    AI_PROVIDER: "gemini"
-    GEMINI_API_KEY: $GEMINI_API_KEY
+    AI_PROVIDER: "gemini-vertex"
+    GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
     MCP_SERVERS_CONFIG: >-
       [{"name": "my-server", "protocol": "http",
         "endpoint": "https://my-mcp-server.example.com/mcp",
