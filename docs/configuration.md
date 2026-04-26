@@ -16,6 +16,7 @@ Set variables in **Project → Settings → CI/CD → Variables**. Mark secrets 
 | `AZURE_OPENAI_KEY` + `AZURE_ENDPOINT` | Azure OpenAI | |
 | `GOOGLE_CLOUD_PROJECT` | Gemini via Vertex AI | (uses ADC, no API key) |
 | `ANTHROPIC_VERTEX_PROJECT_ID` | Anthropic via Vertex AI | (uses ADC, no API key) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Vertex AI (both providers) | **Required** — File type; base64-encoded JSON recommended (enables masking), plain JSON also accepted |
 
 ### Optional Variables
 
@@ -163,7 +164,7 @@ ai_analysis:
 | `GOOGLE_CLOUD_PROJECT` | GCP project ID (gemini-vertex) | - |
 | `ANTHROPIC_VERTEX_PROJECT_ID` | GCP project ID (anthropic-vertex) | - |
 | `GOOGLE_CLOUD_LOCATION` | GCP region | `global` |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key | - |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Service account JSON key (File type, **required**; base64-encoded recommended for masking, plain JSON also accepted) | - |
 
 ### AI Response Format
 
@@ -177,5 +178,7 @@ ai_analysis:
 | "Failed to connect to MCP server" | Verify URL, credentials, and network access |
 | "AI provider configuration error" | Check `AI_PROVIDER` value and API key |
 | "GitLab API authentication failed" | CI_JOB_TOKEN used by default; only set `GITLAB_TOKEN` for enhanced permissions |
+| "GOOGLE_APPLICATION_CREDENTIALS file is not valid JSON or base64-encoded JSON" | Re-export the service account key; store as **File** type variable (`base64 -w0 < key.json`) |
+| "GOOGLE_APPLICATION_CREDENTIALS file not found" | Ensure the CI/CD variable is configured as **File** type, not **Variable** type |
 
 **Debug mode**: Set `LOG_LEVEL: "DEBUG"` and `JSON_LOGS: "true"`.
