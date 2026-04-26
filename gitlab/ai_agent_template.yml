@@ -197,68 +197,51 @@
       echo "=== AI Provider Configuration Check ==="
       echo "AI_PROVIDER: ${AI_PROVIDER:-not_set}"
 
+      # Shared ADC credential handler: validates file, decodes base64 if needed
+      _DECODED_CREDS=""
+      trap '[ -n "$_DECODED_CREDS" ] && rm -f "$_DECODED_CREDS"' EXIT
+      _setup_adc_credentials() {
+        if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+          if [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$GOOGLE_APPLICATION_CREDENTIALS" 2>/dev/null; then
+              echo "Decoding base64-encoded credentials file..."
+              _DECODED_CREDS=$(mktemp)
+              base64 -d < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS" 2>/dev/null || base64 --decode < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS"
+              if python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$_DECODED_CREDS" 2>/dev/null; then
+                export GOOGLE_APPLICATION_CREDENTIALS="$_DECODED_CREDS"
+              else
+                rm -f "$_DECODED_CREDS"
+                _DECODED_CREDS=""
+                echo "ERROR: GOOGLE_APPLICATION_CREDENTIALS file is not valid JSON or base64-encoded JSON"
+                return 1
+              fi
+            fi
+            echo "ADC credentials: $GOOGLE_APPLICATION_CREDENTIALS"
+          else
+            echo "ERROR: GOOGLE_APPLICATION_CREDENTIALS file not found: $GOOGLE_APPLICATION_CREDENTIALS"
+            echo "Ensure the CI/CD variable is configured as File type"
+            return 1
+          fi
+        else
+          echo "Using Application Default Credentials (metadata server / environment-based)"
+        fi
+        return 0
+      }
+
       if [ "$AI_PROVIDER" = "gemini-vertex" ]; then
         if [ -z "$GOOGLE_CLOUD_PROJECT" ]; then
           echo "ERROR: AI_PROVIDER='gemini-vertex' requires GOOGLE_CLOUD_PROJECT to be set"
           exit 3
         fi
-        if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-          echo "ERROR: AI_PROVIDER='gemini-vertex' requires GOOGLE_APPLICATION_CREDENTIALS to be set"
-          echo "Store your GCP service account JSON key as a masked CI/CD variable (base64-encoded)"
-          exit 3
-        fi
-        # Handle base64-encoded credentials (File type variable written to disk)
-        if [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-          if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$GOOGLE_APPLICATION_CREDENTIALS" 2>/dev/null; then
-            echo "Decoding base64-encoded credentials file..."
-            _DECODED_CREDS=$(mktemp)
-            base64 -d < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS" 2>/dev/null || base64 --decode < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS"
-            if python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$_DECODED_CREDS" 2>/dev/null; then
-              export GOOGLE_APPLICATION_CREDENTIALS="$_DECODED_CREDS"
-            else
-              rm -f "$_DECODED_CREDS"
-              echo "ERROR: GOOGLE_APPLICATION_CREDENTIALS file is not valid JSON or base64-encoded JSON"
-              exit 3
-            fi
-          fi
-        else
-          echo "ERROR: GOOGLE_APPLICATION_CREDENTIALS file not found: $GOOGLE_APPLICATION_CREDENTIALS"
-          echo "Ensure the CI/CD variable is configured as File type"
-          exit 3
-        fi
+        _setup_adc_credentials || exit 3
         echo "Gemini Vertex provider configured (project: ${GOOGLE_CLOUD_PROJECT}, location: ${GOOGLE_CLOUD_LOCATION:-global})"
-        echo "ADC credentials: $GOOGLE_APPLICATION_CREDENTIALS"
       elif [ "$AI_PROVIDER" = "anthropic-vertex" ]; then
         if [ -z "$ANTHROPIC_VERTEX_PROJECT_ID" ] && [ -z "$GOOGLE_CLOUD_PROJECT" ]; then
           echo "ERROR: AI_PROVIDER='anthropic-vertex' requires ANTHROPIC_VERTEX_PROJECT_ID or GOOGLE_CLOUD_PROJECT to be set"
           exit 3
         fi
-        if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-          echo "ERROR: AI_PROVIDER='anthropic-vertex' requires GOOGLE_APPLICATION_CREDENTIALS to be set"
-          echo "Store your GCP service account JSON key as a masked CI/CD variable (base64-encoded)"
-          exit 3
-        fi
-        # Handle base64-encoded credentials (File type variable written to disk)
-        if [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-          if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$GOOGLE_APPLICATION_CREDENTIALS" 2>/dev/null; then
-            echo "Decoding base64-encoded credentials file..."
-            _DECODED_CREDS=$(mktemp)
-            base64 -d < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS" 2>/dev/null || base64 --decode < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS"
-            if python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$_DECODED_CREDS" 2>/dev/null; then
-              export GOOGLE_APPLICATION_CREDENTIALS="$_DECODED_CREDS"
-            else
-              rm -f "$_DECODED_CREDS"
-              echo "ERROR: GOOGLE_APPLICATION_CREDENTIALS file is not valid JSON or base64-encoded JSON"
-              exit 3
-            fi
-          fi
-        else
-          echo "ERROR: GOOGLE_APPLICATION_CREDENTIALS file not found: $GOOGLE_APPLICATION_CREDENTIALS"
-          echo "Ensure the CI/CD variable is configured as File type"
-          exit 3
-        fi
+        _setup_adc_credentials || exit 3
         echo "Claude Vertex provider configured (project: ${ANTHROPIC_VERTEX_PROJECT_ID:-${GOOGLE_CLOUD_PROJECT:-not_set}}, location: ${GOOGLE_CLOUD_LOCATION:-global})"
-        echo "ADC credentials: $GOOGLE_APPLICATION_CREDENTIALS"
       elif [ "$AI_PROVIDER" = "claude" ] || [ "$AI_PROVIDER" = "anthropic" ]; then
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           echo "ERROR: AI_PROVIDER='$AI_PROVIDER' requires ANTHROPIC_API_KEY to be set"

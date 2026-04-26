@@ -84,7 +84,7 @@ variables:
 
 ### Google Gemini via Vertex AI
 
-Uses Google Cloud ADC for authentication — no API key needed. Requires `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key. **Base64-encode the JSON before storing** (`base64 -w0 < service-account.json`) so the value can be masked in job logs. Plain JSON is also accepted but cannot be masked. The template auto-detects the format and decodes as needed.
+Uses Google Cloud ADC for authentication — no API key needed. On GCE, GKE, or Cloud Run, the SDK auto-discovers credentials from the metadata server, so no key file is required. For other environments (local dev, non-GCP CI runners), set `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key. **Base64-encode the JSON before storing** (`base64 -w0 < service-account.json`) so the value can be masked in job logs. Plain JSON is also accepted but cannot be masked. The template auto-detects the format and decodes as needed.
 
 > **Security**: Store `GOOGLE_APPLICATION_CREDENTIALS` at the **group level** with **Protected** + **Masked** flags to limit exposure. At the project level, any user with Maintainer access or above can view CI/CD variables. Base64-encoding enables the **Mask variable** option, which prevents the credential from appearing in job logs.
 
@@ -98,7 +98,7 @@ variables:
 
 ### Anthropic Claude via Vertex AI
 
-Uses Google Cloud ADC for authentication — no API key needed. Requires `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key. **Base64-encode the JSON before storing** so the value can be masked — see the [Gemini Vertex AI](#google-gemini-via-vertex-ai) section above for details. Plain JSON is also accepted but cannot be masked.
+Uses Google Cloud ADC for authentication — no API key needed. On GCE, GKE, or Cloud Run, the SDK auto-discovers credentials from the metadata server, so no key file is required. For other environments, set `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key. **Base64-encode the JSON before storing** so the value can be masked — see the [Gemini Vertex AI](#google-gemini-via-vertex-ai) section above for details. Plain JSON is also accepted but cannot be masked.
 
 ```yaml
 variables:
@@ -137,7 +137,7 @@ All secrets should be stored as GitLab CI/CD variables (**Settings > CI/CD > Var
 | `ANTHROPIC_VERTEX_PROJECT_ID` | Optional | Recommended | GCP project ID for Vertex AI Claude |
 | `GOOGLE_CLOUD_PROJECT` | Optional | Recommended | GCP project ID for Vertex AI Gemini |
 | `GOOGLE_CLOUD_LOCATION` | No | Optional | GCP region for Vertex AI (defaults to `global`) |
-| `GOOGLE_APPLICATION_CREDENTIALS` | **File** | Recommended | GCP service account JSON key — **base64-encode recommended** (`base64 -w0 < key.json`) so it can be masked; plain JSON accepted but cannot be masked. Store at group level to limit access to admins |
+| `GOOGLE_APPLICATION_CREDENTIALS` | **File** | Recommended | GCP service account JSON key — optional for Workload Identity / GKE environments (SDK uses metadata server). **Base64-encode recommended** (`base64 -w0 < key.json`) so it can be masked; plain JSON accepted but cannot be masked. Store at group level to limit access to admins |
 | `CI_JOB_TOKEN` | Auto | Auto | Provided and masked by GitLab automatically — no setup needed |
 
 - **Masked** — hides values from job logs. Always enable for secrets.
