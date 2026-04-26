@@ -209,11 +209,11 @@
         fi
         # Handle base64-encoded credentials (File type variable written to disk)
         if [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-          if ! python3 -c "import json; json.load(open('$GOOGLE_APPLICATION_CREDENTIALS'))" 2>/dev/null; then
+          if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$GOOGLE_APPLICATION_CREDENTIALS" 2>/dev/null; then
             echo "Decoding base64-encoded credentials file..."
             _DECODED_CREDS=$(mktemp)
             base64 -d < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS" 2>/dev/null || base64 --decode < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS"
-            if python3 -c "import json; json.load(open('$_DECODED_CREDS'))" 2>/dev/null; then
+            if python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$_DECODED_CREDS" 2>/dev/null; then
               export GOOGLE_APPLICATION_CREDENTIALS="$_DECODED_CREDS"
             else
               rm -f "$_DECODED_CREDS"
@@ -240,11 +240,11 @@
         fi
         # Handle base64-encoded credentials (File type variable written to disk)
         if [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-          if ! python3 -c "import json; json.load(open('$GOOGLE_APPLICATION_CREDENTIALS'))" 2>/dev/null; then
+          if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$GOOGLE_APPLICATION_CREDENTIALS" 2>/dev/null; then
             echo "Decoding base64-encoded credentials file..."
             _DECODED_CREDS=$(mktemp)
             base64 -d < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS" 2>/dev/null || base64 --decode < "$GOOGLE_APPLICATION_CREDENTIALS" > "$_DECODED_CREDS"
-            if python3 -c "import json; json.load(open('$_DECODED_CREDS'))" 2>/dev/null; then
+            if python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$_DECODED_CREDS" 2>/dev/null; then
               export GOOGLE_APPLICATION_CREDENTIALS="$_DECODED_CREDS"
             else
               rm -f "$_DECODED_CREDS"
