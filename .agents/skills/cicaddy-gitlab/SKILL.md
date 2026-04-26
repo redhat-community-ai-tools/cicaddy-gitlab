@@ -28,7 +28,7 @@ include:
 ai_code_review:
   extends: .ai_agent_template
   variables:
-    AI_PROVIDER: "gemini"           # gemini | openai | claude | anthropic-vertex
+    AI_PROVIDER: "gemini"           # gemini | openai | claude | gemini-vertex | anthropic-vertex
     GEMINI_API_KEY: $GEMINI_API_KEY
     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 ```

@@ -8,7 +8,7 @@ GitLab platform plugin for the [cicaddy](https://github.com/waynesun09/cicaddy) 
 - **Sub-Agent Delegation** - AI-powered multi-agent review with specialized sub-agents running in parallel
 - **Branch Review** - Compare branch changes against main for deployment readiness analysis
 - **Scheduled Analysis** - Cron-based AI analysis jobs with MCP tool integration
-- **Multi-Provider AI** - Support for Gemini, OpenAI, Claude, Anthropic via Vertex AI
+- **Multi-Provider AI** - Support for Gemini, OpenAI, Claude, Gemini via Vertex AI, Anthropic via Vertex AI
 - **DSPy Task Files** - Declarative YAML prompt definitions for structured analysis
 - **GitLab CI Templates** - Ready-to-use CI/CD templates for merge request and scheduled jobs
 
@@ -31,7 +31,7 @@ Using Gemini as an example:
 3. Set **Key** to `GEMINI_API_KEY`, paste your API key as **Value**
 4. Check **Mask variable**, then click **Add variable**
 
-See [docs/getting-started.md](docs/getting-started.md) for other providers (OpenAI, Claude, Anthropic Vertex AI) and full security best practices.
+See [docs/getting-started.md](docs/getting-started.md) for other providers (OpenAI, Claude, Gemini Vertex AI, Anthropic Vertex AI) and full security best practices.
 
 ## Quick Start
 
