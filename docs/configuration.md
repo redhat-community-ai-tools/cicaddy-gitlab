@@ -12,7 +12,10 @@ Set variables in **Project → Settings → CI/CD → Variables**. Mark secrets 
 |----------|----------|---------|
 | `GEMINI_API_KEY` | Gemini (recommended) | `AIzaSyC...` |
 | `OPENAI_API_KEY` | OpenAI | `sk-proj-...` |
+| `ANTHROPIC_API_KEY` | Anthropic Claude | `sk-ant-...` |
 | `AZURE_OPENAI_KEY` + `AZURE_ENDPOINT` | Azure OpenAI | |
+| `GOOGLE_CLOUD_PROJECT` | Gemini via Vertex AI | (uses ADC, no API key) |
+| `ANTHROPIC_VERTEX_PROJECT_ID` | Anthropic via Vertex AI | (uses ADC, no API key) |
 
 ### Optional Variables
 
@@ -38,7 +41,7 @@ Auto-detected from CI environment, or set explicitly with `AGENT_TYPE`:
 
 ```yaml
 variables:
-  AI_PROVIDER: "gemini"                    # gemini, openai, azure
+  AI_PROVIDER: "gemini"                    # gemini, openai, azure, claude, gemini-vertex, anthropic-vertex
   GEMINI_API_KEY: $GEMINI_API_KEY
   AI_MODEL: "gemini-3-flash-preview"       # optional
 ```
@@ -152,6 +155,15 @@ ai_analysis:
 | `AGENT_TASKS` | Comma-separated tasks | `code_review` |
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `GIT_DIFF_CONTEXT_LINES` | Git diff context lines | `10` |
+
+### Vertex AI
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID (gemini-vertex) | - |
+| `ANTHROPIC_VERTEX_PROJECT_ID` | GCP project ID (anthropic-vertex) | - |
+| `GOOGLE_CLOUD_LOCATION` | GCP region | `global` |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key | - |
 
 ### AI Response Format
 

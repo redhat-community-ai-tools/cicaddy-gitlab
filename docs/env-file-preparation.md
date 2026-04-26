@@ -11,7 +11,7 @@ TASK_TYPE=custom                   # For task agents
 TASK_SCOPE=external_tools          # For task agents with MCP tools
 
 # AI Provider
-AI_PROVIDER=gemini                 # gemini, openai, azure, claude, anthropic-vertex
+AI_PROVIDER=gemini                 # gemini, openai, azure, claude, gemini-vertex, anthropic-vertex
 GEMINI_API_KEY=your-api-key-here
 AI_MODEL=gemini-3-flash-preview    # Optional: override default model
 
