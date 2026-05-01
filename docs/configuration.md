@@ -4,7 +4,7 @@ Configure cicaddy-gitlab for your project using GitLab CI/CD variables, AI provi
 
 ## CI/CD Variables
 
-Set variables in **Project → Settings → CI/CD → Variables**. Mark secrets as **Masked** and **Protected**.
+Set variables in **Project → Settings → CI/CD → Variables**. Mark secrets as **Masked** and leave **Protect variable** unchecked for variables used in MR pipelines (protected variables are only available on protected branches).
 
 ### AI Provider Keys (choose one)
 
@@ -177,7 +177,8 @@ ai_analysis:
 | "No merge request IID provided" | Ensure job runs on MR events, check `rules` |
 | "Failed to connect to MCP server" | Verify URL, credentials, and network access |
 | "AI provider configuration error" | Check `AI_PROVIDER` value and API key |
-| "GitLab API authentication failed" / `401 Unauthorized` | Create a Project Access Token with `api` scope and store as `GITLAB_TOKEN` CI/CD variable (see [Getting Started — GitLab API Token](getting-started.md#gitlab-api-token)) |
+| "GitLab API authentication failed" / `401 Unauthorized` | Create a Project Access Token with `api` scope and store as `GITLAB_TOKEN` CI/CD variable with **Protect variable** unchecked (see [Getting Started — GitLab API Token](getting-started.md#gitlab-api-token)). Verify the token value was actually saved |
+| `Permission denied on resource project $GOOGLE_CLOUD_PROJECT` (literal `$`) | CI/CD variable not reaching the job — most likely **Protect variable** is checked (protected variables are unavailable in MR pipelines on non-protected branches) |
 | "GOOGLE_APPLICATION_CREDENTIALS file is not valid JSON or base64-encoded JSON" | Re-export the service account key; store as **File** type variable (`base64 -w0 < key.json`) |
 | "GOOGLE_APPLICATION_CREDENTIALS file not found" | Ensure the CI/CD variable is configured as **File** type, not **Variable** type |
 | "Using Application Default Credentials (metadata server / environment-based)" | Normal on GCE/GKE/Cloud Run — no action needed. Set `GOOGLE_APPLICATION_CREDENTIALS` only when not running on GCP infrastructure |

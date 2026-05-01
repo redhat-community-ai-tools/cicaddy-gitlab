@@ -36,8 +36,12 @@ Create a **Project Access Token**:
    - **Key**: `GITLAB_TOKEN`
    - **Value**: the token you copied
    - **Mask variable**: checked
+   - **Expand variable reference**: checked
+   - **Protect variable**: unchecked (so MR pipelines on non-protected branches can use it)
 
 > **Tip:** To share one token across multiple projects, create a **Group Access Token** instead (**Group > Settings > Access tokens** with `api` scope) and add it as a group-level CI/CD variable (**Group > Settings > CI/CD > Variables**). All projects in that group will inherit it automatically.
+>
+> **Troubleshooting:** If the agent logs show `401 Unauthorized` with `Failed to load project`, verify that the token value was actually copied into the CI/CD variable (the token is only shown once at creation time). Also check that **Protect variable** is unchecked — protected variables are only available on protected branches, not in MR pipelines.
 
 ### AI Provider Credentials
 
@@ -48,8 +52,8 @@ Using Gemini via Vertex AI as an example (recommended):
 1. Create a GCP service account with the **Vertex AI User** role and export its JSON key
 2. Base64-encode the key: `base64 < service-account-key.json | tr -d '\n'`
 3. Go to **Settings > CI/CD > Variables** in your GitLab project
-4. Add `GOOGLE_APPLICATION_CREDENTIALS` — paste the base64 string as **Value**, select **File** type, check **Mask variable** and **Hidden**
-5. Add `GOOGLE_CLOUD_PROJECT` — set to your GCP project ID, check **Mask variable**
+4. Add `GOOGLE_APPLICATION_CREDENTIALS` — paste the base64 string as **Value**, select **File** type, check **Mask variable**, **Hidden**, and **Expand variable reference**
+5. Add `GOOGLE_CLOUD_PROJECT` — set to your GCP project ID, check **Mask variable** and **Expand variable reference**
 
 For API key providers (`gemini`, `openai`, `claude`) or Claude via Vertex AI (`anthropic-vertex`), see [docs/getting-started.md](docs/getting-started.md) for full setup and security best practices.
 
