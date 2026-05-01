@@ -110,7 +110,7 @@ variables:
 
 Uses Google Cloud ADC for authentication — no API key needed. On GCE, GKE, or Cloud Run, the SDK auto-discovers credentials from the metadata server, so no key file is required. For other environments (local dev, non-GCP CI runners), set `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key. **Base64-encode the JSON before storing** (`base64 -w0 < service-account.json`) so the value can be masked in job logs. Plain JSON is also accepted but cannot be masked. The template auto-detects the format and decodes as needed.
 
-> **Security**: Store `GOOGLE_APPLICATION_CREDENTIALS` at the **group level** with **Masked** flag to limit exposure. At the project level, any user with Maintainer access or above can view CI/CD variables. Base64-encoding enables the **Mask variable** option, which prevents the credential from appearing in job logs. Leave **Protect variable** unchecked if the variable needs to be available in MR pipelines on non-protected branches. Check **Expand variable reference** so CI templates can resolve the variable.
+> **Security**: Store `GOOGLE_APPLICATION_CREDENTIALS` at the **group level** with **Masked** flag to limit exposure. At the project level, any user with Maintainer access or above can view CI/CD variables. Base64-encoding enables the **Mask variable** option, which prevents the credential from appearing in job logs. Leave **Protect variable** unchecked if the variable needs to be available in MR pipelines on non-protected branches.
 
 ```yaml
 variables:
@@ -166,7 +166,8 @@ All secrets should be stored as GitLab CI/CD variables (**Settings > CI/CD > Var
 
 - **Masked** — hides values from job logs. Always enable for secrets.
 - **Protected** — restricts the variable to protected branches/tags only. Must be **unchecked** for variables used in MR pipelines, since MR source branches are typically not protected.
-- **Expand variable reference** — must be **checked** so that `$` references in CI templates resolve correctly. Without this, the CI job receives literal `$VARIABLE_NAME` strings instead of the actual values, causing `401 Unauthorized` or `PERMISSION_DENIED` errors.
+- **Expand variable reference** — controls whether `$` references *within the variable's own value* are expanded. Leave checked (default) for most variables. Only uncheck if a secret contains a literal `$` that should not be interpreted as a variable reference.
+- **Security trade-off**: Unchecking **Protect variable** is required for MR pipelines but means any user who can push a branch and modify `.gitlab-ci.yml` could potentially access these secrets in job logs. Mitigate by using **Masked** variables, storing secrets at the **group level** (limits visibility to group admins), and enabling **Hidden** (GitLab 17.6+) where possible.
 - For shared keys across multiple projects, set variables at the **group level** (**Group > Settings > CI/CD > Variables**) to avoid per-project duplication.
 - Never commit `.env` files containing secrets to version control.
 
@@ -194,7 +195,7 @@ The service account key must be either plain JSON or base64-encoded JSON. Re-exp
 Permission denied on resource project $GOOGLE_CLOUD_PROJECT
 ```
 
-The CI/CD variable value is not reaching the job. Check that **Expand variable reference** is checked and **Protect variable** is unchecked on the variable in **Settings > CI/CD > Variables**. Protected variables are only available on protected branches, not in MR pipelines.
+The CI/CD variable value is not reaching the job. The most common cause is **Protect variable** being checked — protected variables are only available on protected branches, not in MR pipelines. Uncheck it in **Settings > CI/CD > Variables**. Also verify that the variable value was actually saved (tokens are only shown once at creation time).
 
 ### Template Not Found
 
