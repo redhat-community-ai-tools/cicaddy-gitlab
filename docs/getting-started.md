@@ -41,8 +41,12 @@ Create a **Project Access Token**:
    - **Key**: `GITLAB_TOKEN`
    - **Value**: the token you copied
    - **Mask variable**: checked
+   - **Expand variable reference**: checked
+   - **Protect variable**: unchecked (so MR pipelines on non-protected branches can use it)
 
 > **Tip:** To share one token across multiple projects, create a **Group Access Token** instead (**Group > Settings > Access tokens** with `api` scope) and add it as a group-level CI/CD variable (**Group > Settings > CI/CD > Variables**). All projects in that group will inherit it automatically.
+>
+> **Troubleshooting:** If the agent logs show `401 Unauthorized` with `Failed to load project`, verify that the token value was actually copied into the CI/CD variable (the token is only shown once at creation time). Also check that **Protect variable** is unchecked — protected variables are only available on protected branches, not in MR pipelines.
 
 ### AI Provider Key
 
@@ -106,7 +110,7 @@ variables:
 
 Uses Google Cloud ADC for authentication — no API key needed. On GCE, GKE, or Cloud Run, the SDK auto-discovers credentials from the metadata server, so no key file is required. For other environments (local dev, non-GCP CI runners), set `GOOGLE_APPLICATION_CREDENTIALS` as a **File** type CI/CD variable containing your service account JSON key. **Base64-encode the JSON before storing** (`base64 -w0 < service-account.json`) so the value can be masked in job logs. Plain JSON is also accepted but cannot be masked. The template auto-detects the format and decodes as needed.
 
-> **Security**: Store `GOOGLE_APPLICATION_CREDENTIALS` at the **group level** with **Protected** + **Masked** flags to limit exposure. At the project level, any user with Maintainer access or above can view CI/CD variables. Base64-encoding enables the **Mask variable** option, which prevents the credential from appearing in job logs.
+> **Security**: Store `GOOGLE_APPLICATION_CREDENTIALS` at the **group level** with **Masked** flag to limit exposure. At the project level, any user with Maintainer access or above can view CI/CD variables. Base64-encoding enables the **Mask variable** option, which prevents the credential from appearing in job logs. Leave **Protect variable** unchecked if the variable needs to be available in MR pipelines on non-protected branches. Check **Expand variable reference** so CI templates can resolve the variable.
 
 ```yaml
 variables:
@@ -146,22 +150,23 @@ Set to `"[]"` for analysis without external tools.
 
 All secrets should be stored as GitLab CI/CD variables (**Settings > CI/CD > Variables**), never hardcoded in `.gitlab-ci.yml`.
 
-| Variable | Masked | Protected | Notes |
-|----------|--------|-----------|-------|
-| `GEMINI_API_KEY` | **Yes** | Recommended | AI provider key |
-| `OPENAI_API_KEY` | **Yes** | Recommended | AI provider key |
-| `ANTHROPIC_API_KEY` | **Yes** | Recommended | AI provider key |
-| `CONTEXT7_API_KEY` | **Yes** | Recommended | MCP tool authentication |
-| `SLACK_WEBHOOK_URL` | **Yes** | Optional | Notification webhook |
-| `GITLAB_TOKEN` | **Yes** | Recommended | Project or Group Access Token with `api` scope — required for MR diff access and comment posting (see [GitLab API Token](#gitlab-api-token)) |
-| `ANTHROPIC_VERTEX_PROJECT_ID` | Optional | Recommended | GCP project ID for Vertex AI Claude |
-| `GOOGLE_CLOUD_PROJECT` | Optional | Recommended | GCP project ID for Vertex AI Gemini |
-| `GOOGLE_CLOUD_LOCATION` | No | Optional | GCP region for Vertex AI (defaults to `global`) |
-| `GOOGLE_APPLICATION_CREDENTIALS` | **File** | Recommended | GCP service account JSON key — optional for Workload Identity / GKE environments (SDK uses metadata server). **Base64-encode recommended** (`base64 -w0 < key.json`) so it can be masked; plain JSON accepted but cannot be masked. Store at group level to limit access to admins |
-| `CI_JOB_TOKEN` | Auto | Auto | Provided and masked by GitLab automatically — no setup needed |
+| Variable | Masked | Protected | Expand | Notes |
+|----------|--------|-----------|--------|-------|
+| `GEMINI_API_KEY` | **Yes** | No | **Yes** | AI provider key |
+| `OPENAI_API_KEY` | **Yes** | No | **Yes** | AI provider key |
+| `ANTHROPIC_API_KEY` | **Yes** | No | **Yes** | AI provider key |
+| `CONTEXT7_API_KEY` | **Yes** | No | **Yes** | MCP tool authentication |
+| `SLACK_WEBHOOK_URL` | **Yes** | Optional | **Yes** | Notification webhook |
+| `GITLAB_TOKEN` | **Yes** | No | **Yes** | Project or Group Access Token with `api` scope — required for MR diff access and comment posting (see [GitLab API Token](#gitlab-api-token)) |
+| `ANTHROPIC_VERTEX_PROJECT_ID` | **Yes** | No | **Yes** | GCP project ID for Vertex AI Claude |
+| `GOOGLE_CLOUD_PROJECT` | **Yes** | No | **Yes** | GCP project ID for Vertex AI Gemini |
+| `GOOGLE_CLOUD_LOCATION` | No | Optional | **Yes** | GCP region for Vertex AI (defaults to `global`) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | **File** + **Masked** | No | **Yes** | GCP service account JSON key — optional for Workload Identity / GKE environments (SDK uses metadata server). **Base64-encode recommended** (`base64 -w0 < key.json`) so it can be masked; plain JSON accepted but cannot be masked. Store at group level to limit access to admins |
+| `CI_JOB_TOKEN` | Auto | Auto | Auto | Provided and masked by GitLab automatically — no setup needed |
 
 - **Masked** — hides values from job logs. Always enable for secrets.
-- **Protected** — restricts the variable to protected branches/tags only. Use when you want to prevent feature branches from accessing production keys.
+- **Protected** — restricts the variable to protected branches/tags only. Must be **unchecked** for variables used in MR pipelines, since MR source branches are typically not protected.
+- **Expand variable reference** — must be **checked** so that `$` references in CI templates resolve correctly. Without this, the CI job receives literal `$VARIABLE_NAME` strings instead of the actual values, causing `401 Unauthorized` or `PERMISSION_DENIED` errors.
 - For shared keys across multiple projects, set variables at the **group level** (**Group > Settings > CI/CD > Variables**) to avoid per-project duplication.
 - Never commit `.env` files containing secrets to version control.
 
@@ -182,6 +187,14 @@ ERROR: GOOGLE_APPLICATION_CREDENTIALS file is not valid JSON or base64-encoded J
 ```
 
 The service account key must be either plain JSON or base64-encoded JSON. Re-export the key and store it as a **File** type CI/CD variable. To base64-encode: `base64 -w0 < service-account.json`.
+
+### Literal `$VARIABLE_NAME` in Error Messages
+
+```
+Permission denied on resource project $GOOGLE_CLOUD_PROJECT
+```
+
+The CI/CD variable value is not reaching the job. Check that **Expand variable reference** is checked and **Protect variable** is unchecked on the variable in **Settings > CI/CD > Variables**. Protected variables are only available on protected branches, not in MR pipelines.
 
 ### Template Not Found
 
