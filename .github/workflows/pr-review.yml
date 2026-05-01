@@ -64,7 +64,7 @@ jobs:
             --base-ref origin/${{ github.event.pull_request.base.ref }} \
             --update -o workspace/graph_context.json
 
-      - uses: redhat-community-ai-tools/cicaddy-action@v0.6.0
+      - uses: redhat-community-ai-tools/cicaddy-action@v0.7.0
         with:
           ai_provider: gemini
           ai_model: gemini-3-flash-preview
