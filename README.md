@@ -22,7 +22,26 @@ This automatically installs `cicaddy` core as a dependency and registers the Git
 
 ## Prerequisites
 
-Set up your AI provider credentials as a GitLab CI/CD variable before adding the templates.
+### GitLab API Token
+
+The agent needs a GitLab API token to read merge request diffs and post review comments. Without it, the agent falls back to `CI_JOB_TOKEN`, which may not have sufficient permissions and can result in `401 Unauthorized` errors.
+
+Create a **Project Access Token**:
+
+1. Go to your project **Settings > Access tokens**
+2. Click **Add new token**
+3. Set **Token name** (e.g. `cicaddy-agent`), **Expiration date**, **Role** to `Developer`, and check the **`api`** scope
+4. Click **Create project access token** and copy the token
+5. Go to **Settings > CI/CD > Variables** and add:
+   - **Key**: `GITLAB_TOKEN`
+   - **Value**: the token you copied
+   - **Mask variable**: checked
+
+> **Tip:** To share one token across multiple projects, create a **Group Access Token** instead (**Group > Settings > Access tokens** with `api` scope) and add it as a group-level CI/CD variable (**Group > Settings > CI/CD > Variables**). All projects in that group will inherit it automatically.
+
+### AI Provider Credentials
+
+Set up your AI provider credentials as a GitLab CI/CD variable.
 
 Using Gemini via Vertex AI as an example (recommended):
 

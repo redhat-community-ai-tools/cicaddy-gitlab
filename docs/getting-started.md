@@ -4,6 +4,7 @@
 
 - Python 3.11+
 - A GitLab instance (gitlab.com or self-hosted)
+- A GitLab API token with `api` scope (see [GitLab API Token](#gitlab-api-token) below)
 - An AI provider API key **or** Google Cloud ADC credentials (for Vertex AI providers)
 
 ## Installation
@@ -25,6 +26,25 @@ pip install -e .
 ## Setting Up CI Variables
 
 In your GitLab project, navigate to **Settings > CI/CD > Variables** and add:
+
+### GitLab API Token
+
+The agent needs a GitLab API token to read merge request diffs and post review comments. Without it, the agent falls back to `CI_JOB_TOKEN`, which may not have sufficient permissions and can result in `401 Unauthorized` errors.
+
+Create a **Project Access Token**:
+
+1. Go to your project **Settings > Access tokens**
+2. Click **Add new token**
+3. Set **Token name** (e.g. `cicaddy-agent`), **Expiration date**, **Role** to `Developer`, and check the **`api`** scope
+4. Click **Create project access token** and copy the token
+5. Go to **Settings > CI/CD > Variables** and add:
+   - **Key**: `GITLAB_TOKEN`
+   - **Value**: the token you copied
+   - **Mask variable**: checked
+
+> **Tip:** To share one token across multiple projects, create a **Group Access Token** instead (**Group > Settings > Access tokens** with `api` scope) and add it as a group-level CI/CD variable (**Group > Settings > CI/CD > Variables**). All projects in that group will inherit it automatically.
+
+### AI Provider Key
 
 1. **API Key** (required, masked):
    - `GEMINI_API_KEY` for Google Gemini
@@ -133,7 +153,7 @@ All secrets should be stored as GitLab CI/CD variables (**Settings > CI/CD > Var
 | `ANTHROPIC_API_KEY` | **Yes** | Recommended | AI provider key |
 | `CONTEXT7_API_KEY` | **Yes** | Recommended | MCP tool authentication |
 | `SLACK_WEBHOOK_URL` | **Yes** | Optional | Notification webhook |
-| `GITLAB_TOKEN` | **Yes** | Recommended | Only needed for enhanced permissions beyond `CI_JOB_TOKEN` |
+| `GITLAB_TOKEN` | **Yes** | Recommended | Project or Group Access Token with `api` scope — required for MR diff access and comment posting (see [GitLab API Token](#gitlab-api-token)) |
 | `ANTHROPIC_VERTEX_PROJECT_ID` | Optional | Recommended | GCP project ID for Vertex AI Claude |
 | `GOOGLE_CLOUD_PROJECT` | Optional | Recommended | GCP project ID for Vertex AI Gemini |
 | `GOOGLE_CLOUD_LOCATION` | No | Optional | GCP region for Vertex AI (defaults to `global`) |
