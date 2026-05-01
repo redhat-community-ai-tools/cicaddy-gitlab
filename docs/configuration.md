@@ -22,7 +22,7 @@ Set variables in **Project → Settings → CI/CD → Variables**. Mark secrets 
 
 | Variable | Description |
 |----------|-------------|
-| `GITLAB_TOKEN` | GitLab API token (CI_JOB_TOKEN used by default for MR Agent) |
+| `GITLAB_TOKEN` | Project or Group Access Token with `api` scope — required for MR diff access and comment posting. Falls back to `CI_JOB_TOKEN` if not set, which may cause `401` errors (see [Getting Started — GitLab API Token](getting-started.md#gitlab-api-token)) |
 | `SLACK_WEBHOOK_URL` | Slack webhook for notifications |
 | `MCP_TOKEN` | MCP server authentication |
 
@@ -177,7 +177,7 @@ ai_analysis:
 | "No merge request IID provided" | Ensure job runs on MR events, check `rules` |
 | "Failed to connect to MCP server" | Verify URL, credentials, and network access |
 | "AI provider configuration error" | Check `AI_PROVIDER` value and API key |
-| "GitLab API authentication failed" | CI_JOB_TOKEN used by default; only set `GITLAB_TOKEN` for enhanced permissions |
+| "GitLab API authentication failed" / `401 Unauthorized` | Create a Project Access Token with `api` scope and store as `GITLAB_TOKEN` CI/CD variable (see [Getting Started — GitLab API Token](getting-started.md#gitlab-api-token)) |
 | "GOOGLE_APPLICATION_CREDENTIALS file is not valid JSON or base64-encoded JSON" | Re-export the service account key; store as **File** type variable (`base64 -w0 < key.json`) |
 | "GOOGLE_APPLICATION_CREDENTIALS file not found" | Ensure the CI/CD variable is configured as **File** type, not **Variable** type |
 | "Using Application Default Credentials (metadata server / environment-based)" | Normal on GCE/GKE/Cloud Run — no action needed. Set `GOOGLE_APPLICATION_CREDENTIALS` only when not running on GCP infrastructure |
