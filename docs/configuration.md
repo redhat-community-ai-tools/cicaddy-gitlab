@@ -44,7 +44,7 @@ Auto-detected from CI environment, or set explicitly with `AGENT_TYPE`:
 variables:
   AI_PROVIDER: "gemini"                    # gemini, openai, azure, claude, gemini-vertex, anthropic-vertex
   GEMINI_API_KEY: $GEMINI_API_KEY
-  AI_MODEL: "gemini-3-flash-preview"       # optional
+  AI_MODEL: "gemini-3.5-flash"       # optional
 ```
 
 ## MCP Server Config

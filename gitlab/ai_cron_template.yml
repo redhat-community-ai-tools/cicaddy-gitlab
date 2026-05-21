@@ -76,7 +76,7 @@
 #     AI_PROVIDER: "gemini-vertex"
 #     GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
 #     GOOGLE_CLOUD_LOCATION: "global"  # or specific region
-#     AI_MODEL: "gemini-3-flash-preview"
+#     AI_MODEL: "gemini-3.5-flash"
 #     MCP_SERVERS_CONFIG: "[]"
 #     AI_TASK_PROMPT: |
 #       Perform analysis using Gemini via Vertex AI.
@@ -140,7 +140,7 @@
 
     # AI configuration with Gemini as default provider
     AI_PROVIDER: "gemini"
-    AI_MODEL: "gemini-3-flash-preview"
+    AI_MODEL: "gemini-3.5-flash"
 
     # MCP servers configuration for scheduled analysis
     # Default: empty - set your own MCP servers

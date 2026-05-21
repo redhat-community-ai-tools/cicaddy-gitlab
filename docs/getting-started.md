@@ -85,7 +85,7 @@ include:
 variables:
   AI_PROVIDER: "gemini"
   GEMINI_API_KEY: $GEMINI_API_KEY
-  AI_MODEL: "gemini-3-flash-preview"  # or gemini-3-pro-preview
+  AI_MODEL: "gemini-3.5-flash"  # or gemini-3-pro-preview
 ```
 
 ### OpenAI
@@ -117,7 +117,7 @@ variables:
   AI_PROVIDER: "gemini-vertex"
   GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
   GOOGLE_CLOUD_LOCATION: "global"  # or specific region
-  AI_MODEL: "gemini-3-flash-preview"
+  AI_MODEL: "gemini-3.5-flash"
 ```
 
 ### Anthropic Claude via Vertex AI

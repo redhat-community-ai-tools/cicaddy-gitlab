@@ -48,7 +48,7 @@
 #     AI_PROVIDER: "gemini-vertex"
 #     GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
 #     GOOGLE_CLOUD_LOCATION: "global"  # or specific region
-#     AI_MODEL: "gemini-3-flash-preview"
+#     AI_MODEL: "gemini-3.5-flash"
 #     SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 #
 # VERTEX AI CLAUDE SETUP (Google Cloud - uses ADC, no API key needed):
@@ -113,7 +113,7 @@
   variables:
     # AI Provider Configuration with Gemini as default
     AI_PROVIDER: "gemini"
-    AI_MODEL: "gemini-3-flash-preview"
+    AI_MODEL: "gemini-3.5-flash"
 
     # MCP Servers Configuration (JSON format)
     MCP_SERVERS_CONFIG: "[]"

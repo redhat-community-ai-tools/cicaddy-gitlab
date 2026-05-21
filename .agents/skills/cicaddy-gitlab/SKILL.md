@@ -38,7 +38,7 @@ Key template variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AI_PROVIDER` | `gemini` | AI provider to use |
-| `AI_MODEL` | `gemini-3-flash-preview` | Model name |
+| `AI_MODEL` | `gemini-3.5-flash` | Model name |
 | `AGENT_TASKS` | `code_review` | Comma-separated task list |
 | `AI_TASK_FILE` | `""` | DSPy task YAML path (overrides AI_TASK_PROMPT) |
 | `AI_TASK_PROMPT` | *(built-in review prompt)* | Inline task prompt |
