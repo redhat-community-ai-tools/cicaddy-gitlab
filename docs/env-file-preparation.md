@@ -13,7 +13,7 @@ TASK_SCOPE=external_tools          # For task agents with MCP tools
 # AI Provider
 AI_PROVIDER=gemini                 # gemini, openai, azure, claude, gemini-vertex, anthropic-vertex
 GEMINI_API_KEY=your-api-key-here
-AI_MODEL=gemini-3.5-flash    # Optional: override default model
+AI_MODEL=gemini-3.5-flash          # Optional: override default model
 
 # Task Definition (choose one)
 AI_TASK_FILE='.gitlab/prompts/my_task.yml'  # DSPy YAML (recommended)

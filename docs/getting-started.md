@@ -85,7 +85,7 @@ include:
 variables:
   AI_PROVIDER: "gemini"
   GEMINI_API_KEY: $GEMINI_API_KEY
-  AI_MODEL: "gemini-3.5-flash"  # or gemini-3-pro-preview
+  AI_MODEL: "gemini-3.5-flash"  # or gemini-3.1-pro-preview
 ```
 
 ### OpenAI
