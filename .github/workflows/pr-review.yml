@@ -67,7 +67,7 @@ jobs:
       - uses: redhat-community-ai-tools/cicaddy-action@v0.7.0
         with:
           ai_provider: gemini
-          ai_model: gemini-3-flash-preview
+          ai_model: gemini-3.5-flash
           ai_api_key: ${{ secrets.AI_API_KEY }}
           task_file: ${{ steps.changes.outputs.python_changed == 'true' && 'tasks/pr_review_with_graph.yml' || 'tasks/pr_review.yml' }}
           mcp_servers_config: >-
