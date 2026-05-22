@@ -144,7 +144,7 @@ class GitLabAnalyzer:
                 continue
             old_path = change.get("old_path", change.get("new_path", ""))
             new_path = change.get("new_path", old_path)
-            if not diff_text.lstrip().startswith("---"):
+            if not diff_text.lstrip().startswith("--- a/"):
                 diff_parts.append(f"diff --git a/{old_path} b/{new_path}")
                 diff_parts.append(f"--- a/{old_path}")
                 diff_parts.append(f"+++ b/{new_path}")
@@ -241,6 +241,7 @@ class GitLabAnalyzer:
 
     # GitLab notes have a ~1MB limit; use a generous threshold that
     # preserves more history while staying safely below the API limit.
+    MAX_INLINE_COMMENTS = 25
     MAX_NOTE_LENGTH = 250_000
     # Reserve a buffer so the final result (new body + history overhead)
     # stays comfortably under MAX_NOTE_LENGTH.
@@ -536,7 +537,7 @@ class GitLabAnalyzer:
             if not diff_text:
                 continue
             # GitLab API omits --- /+++ file headers; prepend them for parse_diff()
-            if not diff_text.lstrip().startswith("---"):
+            if not diff_text.lstrip().startswith("--- a/"):
                 old_path = change.get("old_path", file_path)
                 new_path = change.get("new_path", file_path)
                 diff_text = f"--- a/{old_path}\n+++ b/{new_path}\n{diff_text}"
@@ -589,12 +590,29 @@ class GitLabAnalyzer:
             for c in changes
         }
 
-        max_comments = 25
-        if len(findings) > max_comments:
-            logger.warning(
-                "Limiting inline comments from %d to %d", len(findings), max_comments
+        # Deduplicate by file:line — keep first occurrence
+        seen = set()
+        unique_findings = []
+        for f in findings:
+            key = (f.get("file", ""), f.get("line"))
+            if key not in seen:
+                seen.add(key)
+                unique_findings.append(f)
+        if len(unique_findings) < len(findings):
+            logger.info(
+                "Deduplicated inline findings from %d to %d",
+                len(findings),
+                len(unique_findings),
             )
-            findings = findings[:max_comments]
+        findings = unique_findings
+
+        if len(findings) > self.MAX_INLINE_COMMENTS:
+            logger.warning(
+                "Limiting inline comments from %d to %d",
+                len(findings),
+                self.MAX_INLINE_COMMENTS,
+            )
+            findings = findings[: self.MAX_INLINE_COMMENTS]
 
         posted = 0
         skipped = 0

@@ -243,7 +243,9 @@ Security Analysis Focus:
         # Post inline review comments on diff lines
         inline_enabled = self.settings.inline_review_comments
         findings = analysis_result.get("findings", [])
-        inline_findings = [f for f in findings if f.get("line") and f.get("file")]
+        inline_findings = [
+            f for f in findings if f.get("line") is not None and f.get("file")
+        ]
         if inline_enabled:
             if not self.platform_analyzer:
                 logger.warning(

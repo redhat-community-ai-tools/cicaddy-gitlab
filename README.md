@@ -218,7 +218,7 @@ custom_analysis:
 | `SUB_AGENT_MAX_ITERS` | `10` | Max iterations per sub-agent (1-15) |
 | `DELEGATION_AGENTS` | (empty) | JSON config for custom sub-agent definitions |
 | `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Directory for user-defined sub-agent YAML files |
-| `DELEGATION_VERIFY_FINDINGS` | `false` | Verify findings against diff before posting |
+| `DELEGATION_VERIFY_FINDINGS` | `false` | Verify findings against diff before posting (core cicaddy setting) |
 | `TRIAGE_PROMPT` | (empty) | Custom instructions for the triage AI |
 | `POST_MR_COMMENT` | `true` | Post summary comment on the MR |
 | `INLINE_REVIEW_COMMENTS` | `false` | Post findings as inline comments on diff lines |

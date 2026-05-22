@@ -399,7 +399,7 @@ class TestGetDiffFromApi:
 
     @pytest.mark.asyncio
     async def test_does_not_double_headers(self, analyzer, mock_gitlab):
-        """Diff text already containing --- headers is not re-wrapped."""
+        """Diff text already containing --- a/ headers is not re-wrapped."""
         _, mock_project = mock_gitlab
         mock_mr = MagicMock()
         mock_mr.changes.return_value = {
@@ -416,6 +416,27 @@ class TestGetDiffFromApi:
 
         assert result.count("--- a/src/main.py") == 1
         assert "diff --git" not in result
+
+    @pytest.mark.asyncio
+    async def test_yaml_doc_separator_gets_headers(self, analyzer, mock_gitlab):
+        """Diff starting with '---' (YAML doc separator) still gets headers."""
+        _, mock_project = mock_gitlab
+        mock_mr = MagicMock()
+        mock_mr.changes.return_value = {
+            "changes": [
+                {
+                    "old_path": "config.yaml",
+                    "new_path": "config.yaml",
+                    "diff": "---\nkey: value\n",
+                }
+            ]
+        }
+
+        result = await analyzer._get_diff_from_api(mock_mr)
+
+        assert "diff --git a/config.yaml b/config.yaml" in result
+        assert "--- a/config.yaml" in result
+        assert "+++ b/config.yaml" in result
 
 
 # =============================================================================
@@ -630,17 +651,46 @@ class TestPostInlineComments:
     async def test_caps_at_max_comments(self, analyzer, mock_gitlab):
         """Findings beyond the cap are not posted."""
         _, mock_project = mock_gitlab
-        mock_mr = _setup_mr_mock(mock_project)
+        # Use a wide diff hunk to accommodate many unique lines
+        wide_changes = [
+            {
+                "old_path": "src/main.py",
+                "new_path": "src/main.py",
+                "diff": "@@ -1,5 +1,100 @@\n"
+                + "".join(f"+line{i}\n" for i in range(100)),
+            }
+        ]
+        mock_mr = _setup_mr_mock(mock_project, changes=wide_changes)
         mock_mr.discussions.create.return_value = MagicMock()
 
+        cap = GitLabAnalyzer.MAX_INLINE_COMMENTS
         findings = [
-            {"file": "src/main.py", "line": 12, "body": f"Issue {i}"} for i in range(30)
+            {"file": "src/main.py", "line": i + 1, "body": f"Issue {i}"}
+            for i in range(cap + 5)
         ]
 
         result = await analyzer.post_inline_comments(mr_iid="42", findings=findings)
 
-        assert result["posted"] + result["skipped"] + result["failed"] == 25
-        assert mock_mr.discussions.create.call_count == 25
+        assert result["posted"] + result["skipped"] + result["failed"] == cap
+        assert mock_mr.discussions.create.call_count == cap
+
+    @pytest.mark.asyncio
+    async def test_deduplicates_by_file_line(self, analyzer, mock_gitlab):
+        """Duplicate findings on same file:line are deduplicated."""
+        _, mock_project = mock_gitlab
+        mock_mr = _setup_mr_mock(mock_project)
+        mock_mr.discussions.create.return_value = MagicMock()
+
+        findings = [
+            {"file": "src/main.py", "line": 12, "body": "First issue."},
+            {"file": "src/main.py", "line": 12, "body": "Duplicate issue."},
+            {"file": "src/main.py", "line": 14, "body": "Different line."},
+        ]
+
+        result = await analyzer.post_inline_comments(mr_iid="42", findings=findings)
+
+        assert mock_mr.discussions.create.call_count == 2
+        assert result["posted"] == 2
 
 
 # =============================================================================
@@ -926,6 +976,36 @@ class TestSendNotificationsInline:
 
         # Should not raise (no platform_analyzer means skip all comments)
         await agent.send_notifications({"report_id": "r1"}, analysis_result)
+
+    @pytest.mark.asyncio
+    async def test_line_zero_included_in_inline_findings(self):
+        """Finding with line=0 is included (not filtered by truthiness)."""
+        agent = _make_agent(inline_review_comments=True)
+        agent.platform_analyzer.post_inline_comments.return_value = {
+            "posted": 1,
+            "skipped": 0,
+            "failed": 0,
+        }
+
+        analysis_result = {
+            "ai_analysis": "Review text.",
+            "findings": [
+                {
+                    "file": "src/main.py",
+                    "line": 0,
+                    "severity": "major",
+                    "message": "File-level finding",
+                },
+            ],
+        }
+
+        await agent.send_notifications({"report_id": "r1"}, analysis_result)
+
+        agent.platform_analyzer.post_inline_comments.assert_awaited_once()
+        call_args = agent.platform_analyzer.post_inline_comments.call_args
+        posted_findings = call_args[1].get("findings") or call_args[0][1]
+        assert len(posted_findings) == 1
+        assert posted_findings[0]["line"] == 0
 
     @pytest.mark.asyncio
     async def test_no_findings_key_in_result(self):
