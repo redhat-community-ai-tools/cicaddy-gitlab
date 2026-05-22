@@ -63,6 +63,11 @@ class Settings(CoreSettings):
             "Set to false for local testing to avoid accidental comment posting."
         ),
     )
+    inline_review_comments: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("INLINE_REVIEW_COMMENTS"),
+        description="Post findings as inline comments on MR diff lines.",
+    )
 
 
 def load_settings() -> Settings:

@@ -492,3 +492,128 @@ class GitLabAnalyzer:
             "web_url": project.web_url,
             "default_branch": project.default_branch,
         }
+
+    # ------------------------------------------------------------------
+    # Inline review comments
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_line_in_diff_range(changes: list[dict], file_path: str, line: int) -> bool:
+        """Check whether *line* falls within a diff hunk for *file_path*.
+
+        Parses the ``diff`` field from the matching change entry using
+        ``cicaddy.delegation.line_resolver.parse_diff`` and checks if
+        *line* is in any hunk's new-side range.
+
+        Args:
+            changes: List of change dicts from the GitLab MR changes API.
+            file_path: Path of the file to check.
+            line: New-side line number to validate.
+
+        Returns:
+            True if the line is within a diff hunk, False otherwise.
+        """
+        from cicaddy.delegation.line_resolver import parse_diff
+
+        for change in changes:
+            if change.get("new_path") != file_path:
+                continue
+            diff_text = change.get("diff", "")
+            if not diff_text:
+                return False
+            diff_files = parse_diff(diff_text)
+            for df in diff_files:
+                for hunk in df.hunks:
+                    hunk_end = hunk.new_start + hunk.new_count - 1
+                    if hunk.new_start <= line <= hunk_end:
+                        return True
+            return False
+        return False
+
+    async def _get_mr_diff_refs(self, mr_iid: str) -> Dict[str, str]:
+        """Get base_sha, head_sha, start_sha from the latest MR diff version.
+
+        Args:
+            mr_iid: Merge request IID.
+
+        Returns:
+            Dict with ``base_sha``, ``head_sha``, ``start_sha`` keys.
+
+        Raises:
+            IndexError: If no diff versions exist for the MR.
+        """
+        mr = self._get_project().mergerequests.get(mr_iid)
+        diffs = mr.diffs.list(per_page=1, order_by="created_at", sort="desc")
+        latest = diffs[0]
+        return {
+            "base_sha": latest.base_commit_sha,
+            "head_sha": latest.head_commit_sha,
+            "start_sha": latest.start_commit_sha,
+        }
+
+    async def post_inline_comments(
+        self,
+        mr_iid: str,
+        findings: list[dict],
+        base_sha: str,
+        head_sha: str,
+        start_sha: str,
+    ) -> Dict[str, int]:
+        """Post inline discussion threads on MR diff lines.
+
+        For each finding, validates that the target line is within a diff
+        hunk, then creates a discussion thread with position data.
+
+        Args:
+            mr_iid: Merge request IID.
+            findings: List of finding dicts, each with ``file``, ``line``,
+                and ``body`` keys.
+            base_sha: Merge base commit SHA.
+            head_sha: Head commit SHA.
+            start_sha: Start commit SHA (same as base for simple diffs).
+
+        Returns:
+            Dict with ``posted``, ``skipped``, ``failed`` counts.
+        """
+        mr = self._get_project().mergerequests.get(mr_iid)
+        changes = mr.changes().get("changes", [])
+
+        posted = 0
+        skipped = 0
+        failed = 0
+
+        for finding in findings:
+            file_path = finding["file"]
+            line = finding["line"]
+
+            if not self._is_line_in_diff_range(changes, file_path, line):
+                logger.debug(
+                    f"Skipping inline comment: line {line} in {file_path} "
+                    f"is not within a diff hunk"
+                )
+                skipped += 1
+                continue
+
+            position = {
+                "base_sha": base_sha,
+                "head_sha": head_sha,
+                "start_sha": start_sha,
+                "position_type": "text",
+                "new_path": file_path,
+                "old_path": file_path,
+                "new_line": line,
+            }
+
+            try:
+                mr.discussions.create({"body": finding["body"], "position": position})
+                posted += 1
+            except Exception as e:
+                logger.warning(
+                    f"Failed to post inline comment on {file_path}:{line}: {e}"
+                )
+                failed += 1
+
+        logger.info(
+            f"Inline comments: {posted} posted, {skipped} skipped, {failed} failed"
+        )
+        return {"posted": posted, "skipped": skipped, "failed": failed}
