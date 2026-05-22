@@ -63,6 +63,10 @@ AI_PROVIDER=gemini
 GEMINI_API_KEY=your-key
 MCP_SERVERS_CONFIG='[{"name":"context7","protocol":"http","endpoint":"https://mcp.context7.com/mcp","timeout":300,"idle_timeout":60}]'
 LOG_LEVEL=DEBUG
+
+# Review comments
+POST_MR_COMMENT=true               # Post summary comment (default: true)
+INLINE_REVIEW_COMMENTS=true         # Post inline comments on diff lines (default: false)
 ```
 
 **Note**: Do NOT set `GIT_WORKING_DIRECTORY` for local development — leave it unset so the agent uses GitLab API for diff retrieval.

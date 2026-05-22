@@ -154,6 +154,8 @@ ai_analysis:
 | `AI_TASK_FILE` | DSPy task file path | - |
 | `AI_TASK_PROMPT` | Inline analysis prompt | Default prompt |
 | `AGENT_TASKS` | Comma-separated tasks | `code_review` |
+| `POST_MR_COMMENT` | Post summary comment on the MR | `true` |
+| `INLINE_REVIEW_COMMENTS` | Post findings as inline comments on diff lines | `false` |
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `GIT_DIFF_CONTEXT_LINES` | Git diff context lines | `10` |
 

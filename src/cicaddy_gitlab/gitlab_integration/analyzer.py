@@ -137,11 +137,20 @@ class GitLabAnalyzer:
 
         changes = mr.changes()
 
-        diff_content = ""
+        diff_parts = []
         for change in changes.get("changes", []):
-            diff_content += change.get("diff", "") + "\n"
+            diff_text = change.get("diff", "")
+            if not diff_text:
+                continue
+            old_path = change.get("old_path", change.get("new_path", ""))
+            new_path = change.get("new_path", old_path)
+            if not diff_text.lstrip().startswith("--- a/"):
+                diff_parts.append(f"diff --git a/{old_path} b/{new_path}")
+                diff_parts.append(f"--- a/{old_path}")
+                diff_parts.append(f"+++ b/{new_path}")
+            diff_parts.append(diff_text)
 
-        return diff_content
+        return "\n".join(diff_parts)
 
     async def get_changed_files(self, mr_iid: str) -> list:
         """Get list of changed files in merge request."""
@@ -232,6 +241,7 @@ class GitLabAnalyzer:
 
     # GitLab notes have a ~1MB limit; use a generous threshold that
     # preserves more history while staying safely below the API limit.
+    MAX_INLINE_COMMENTS = 25
     MAX_NOTE_LENGTH = 250_000
     # Reserve a buffer so the final result (new body + history overhead)
     # stays comfortably under MAX_NOTE_LENGTH.
@@ -492,3 +502,162 @@ class GitLabAnalyzer:
             "web_url": project.web_url,
             "default_branch": project.default_branch,
         }
+
+    # ------------------------------------------------------------------
+    # Inline review comments
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_line_in_diff_range(changes: list[dict], file_path: str, line: int) -> bool:
+        """Check whether *line* falls within a diff hunk for *file_path*.
+
+        Parses the ``diff`` field from the matching change entry using
+        ``cicaddy.delegation.line_resolver.parse_diff`` and checks if
+        *line* is in any hunk's new-side range.
+
+        Args:
+            changes: List of change dicts from the GitLab MR changes API.
+            file_path: Path of the file to check.
+            line: New-side line number to validate.
+
+        Returns:
+            True if the line is within a diff hunk, False otherwise.
+        """
+        from cicaddy.delegation.line_resolver import parse_diff
+
+        try:
+            line = int(line)
+        except (ValueError, TypeError):
+            return False
+
+        for change in changes:
+            if change.get("new_path") != file_path:
+                continue
+            diff_text = change.get("diff", "")
+            if not diff_text:
+                continue
+            # GitLab API omits --- /+++ file headers; prepend them for parse_diff()
+            if not diff_text.lstrip().startswith("--- a/"):
+                old_path = change.get("old_path", file_path)
+                new_path = change.get("new_path", file_path)
+                diff_text = f"--- a/{old_path}\n+++ b/{new_path}\n{diff_text}"
+            diff_files = parse_diff(diff_text)
+            for df in diff_files:
+                for hunk in df.hunks:
+                    hunk_end = hunk.new_start + hunk.new_count - 1
+                    if hunk.new_start <= line <= hunk_end:
+                        return True
+        return False
+
+    async def post_inline_comments(
+        self,
+        mr_iid: str,
+        findings: list[dict],
+    ) -> Dict[str, int]:
+        """Post inline discussion threads on MR diff lines.
+
+        Fetches the MR changes and latest diff version internally, then
+        for each finding validates that the target line is within a diff
+        hunk and creates a discussion thread with position data.
+
+        Args:
+            mr_iid: Merge request IID.
+            findings: List of finding dicts, each with ``file``, ``line``,
+                and ``body`` keys.
+
+        Returns:
+            Dict with ``posted``, ``skipped``, ``failed`` counts.
+        """
+        mr = self._get_project().mergerequests.get(mr_iid)
+        changes_data = mr.changes()
+        changes = changes_data.get("changes", [])
+
+        # Get diff refs from the latest diff version
+        diffs = mr.diffs.list(per_page=1, order_by="created_at", sort="desc")
+        if not diffs:
+            logger.warning(
+                "No diff versions found for MR %s, skipping inline comments", mr_iid
+            )
+            return {"posted": 0, "skipped": len(findings), "failed": 0}
+        latest = diffs[0]
+        base_sha = latest.base_commit_sha
+        head_sha = latest.head_commit_sha
+        start_sha = latest.start_commit_sha
+
+        # Build old_path lookup for renamed files
+        old_path_map = {
+            c.get("new_path", ""): c.get("old_path", c.get("new_path", ""))
+            for c in changes
+        }
+
+        # Deduplicate by file:line — keep first occurrence
+        seen = set()
+        unique_findings = []
+        for f in findings:
+            key = (f.get("file", ""), f.get("line"))
+            if key not in seen:
+                seen.add(key)
+                unique_findings.append(f)
+        if len(unique_findings) < len(findings):
+            logger.info(
+                "Deduplicated inline findings from %d to %d",
+                len(findings),
+                len(unique_findings),
+            )
+        findings = unique_findings
+
+        if len(findings) > self.MAX_INLINE_COMMENTS:
+            logger.warning(
+                "Limiting inline comments from %d to %d",
+                len(findings),
+                self.MAX_INLINE_COMMENTS,
+            )
+            findings = findings[: self.MAX_INLINE_COMMENTS]
+
+        posted = 0
+        skipped = 0
+        failed = 0
+
+        for finding in findings:
+            file_path = finding["file"]
+            try:
+                line = int(finding["line"])
+            except (ValueError, TypeError):
+                logger.debug(
+                    f"Skipping inline comment: invalid line {finding['line']!r} "
+                    f"in {file_path}"
+                )
+                skipped += 1
+                continue
+
+            if not self._is_line_in_diff_range(changes, file_path, line):
+                logger.debug(
+                    f"Skipping inline comment: line {line} in {file_path} "
+                    f"is not within a diff hunk"
+                )
+                skipped += 1
+                continue
+
+            position = {
+                "base_sha": base_sha,
+                "head_sha": head_sha,
+                "start_sha": start_sha,
+                "position_type": "text",
+                "new_path": file_path,
+                "old_path": old_path_map.get(file_path, file_path),
+                "new_line": line,
+            }
+
+            try:
+                mr.discussions.create({"body": finding["body"], "position": position})
+                posted += 1
+            except Exception as e:
+                logger.warning(
+                    f"Failed to post inline comment on {file_path}:{line}: {e}"
+                )
+                failed += 1
+
+        logger.info(
+            f"Inline comments: {posted} posted, {skipped} skipped, {failed} failed"
+        )
+        return {"posted": posted, "skipped": skipped, "failed": failed}

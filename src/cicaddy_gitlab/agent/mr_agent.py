@@ -240,6 +240,29 @@ Security Analysis Focus:
         else:
             logger.info("Skipping GitLab comment posting (POST_MR_COMMENT=false)")
 
+        # Post inline review comments on diff lines
+        inline_enabled = self.settings.inline_review_comments
+        findings = analysis_result.get("findings", [])
+        inline_findings = [
+            f for f in findings if f.get("line") is not None and f.get("file")
+        ]
+        if inline_enabled:
+            if not self.platform_analyzer:
+                logger.warning(
+                    "Inline review: platform analyzer not available, skipping"
+                )
+            elif not inline_findings:
+                skipped = len(findings) - len(inline_findings)
+                logger.info(
+                    f"Inline review: {len(inline_findings)} findings with line+file, "
+                    f"{skipped} without (total {len(findings)})"
+                )
+            else:
+                try:
+                    await self._post_inline_comments(inline_findings)
+                except Exception as e:
+                    logger.error(f"Failed to post inline comments: {e}", exc_info=True)
+
         # Send Slack notification using parent class method
         await super().send_notifications(report, analysis_result)
 
@@ -257,6 +280,68 @@ Security Analysis Focus:
         # Post to GitLab (updates existing bot note in-place if found)
         await self.platform_analyzer.post_merge_request_note(
             self.merge_request_iid, comment, note_marker=BOT_NOTE_MARKER
+        )
+
+    @staticmethod
+    def _format_inline_comment(finding: dict) -> str:
+        """Format a finding dict into a markdown inline comment body.
+
+        Args:
+            finding: Finding dict with ``severity``, ``message``, and
+                optional ``suggestion`` and ``agent_source`` keys.
+
+        Returns:
+            Formatted markdown string for the inline comment.
+        """
+        severity = finding.get("severity", "info").upper()
+        emoji_map = {
+            "CRITICAL": "\U0001f534",
+            "HIGH": "\U0001f534",
+            "MAJOR": "\U0001f7e0",
+            "MEDIUM": "\U0001f7e0",
+            "MINOR": "\U0001f7e1",
+            "LOW": "\U0001f7e1",
+            "WARNING": "\U0001f7e1",
+            "NIT": "\U0001f535",
+            "INFO": "\U0001f535",
+        }
+        emoji = emoji_map.get(severity, "ℹ️")
+        body = f"{emoji} **{severity}**: {finding.get('message', 'No description provided')}"
+        if finding.get("suggestion"):
+            body += f"\n\n**Suggestion**: {finding['suggestion']}"
+        if finding.get("agent_source"):
+            body += f"\n\n<sub>Source: {finding['agent_source']}</sub>"
+        return body
+
+    async def _post_inline_comments(self, findings: list[dict]) -> None:
+        """Post inline review comments for findings with resolved lines.
+
+        Formats each finding body and delegates to the platform analyzer
+        for discussion creation.  The analyzer fetches diff refs internally.
+
+        Args:
+            findings: List of finding dicts with ``file`` and ``line`` keys.
+        """
+        # Format each finding body and prepare for posting
+        formatted_findings = []
+        for finding in findings:
+            body = self._format_inline_comment(finding)
+            formatted_findings.append(
+                {
+                    "file": finding["file"],
+                    "line": finding["line"],
+                    "body": body,
+                }
+            )
+
+        result = await self.platform_analyzer.post_inline_comments(
+            mr_iid=self.merge_request_iid,
+            findings=formatted_findings,
+        )
+
+        logger.info(
+            f"Inline review comments: {result['posted']} posted, "
+            f"{result['skipped']} skipped, {result['failed']} failed"
         )
 
     def _extract_token_summary(self, analysis_result: Dict[str, Any]) -> str:
