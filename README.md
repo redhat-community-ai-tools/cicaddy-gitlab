@@ -116,6 +116,22 @@ ai_code_review:
 
 Custom agents with the same name as a built-in replace it. See [docs/delegation.md](docs/delegation.md) for the full YAML format, merge precedence, and tool filtering.
 
+#### Inline Review Comments
+
+Enable inline review comments to post findings directly on the relevant diff lines, alongside the summary comment:
+
+```yaml
+ai_code_review:
+  extends: .ai_agent_template
+  variables:
+    AI_PROVIDER: "gemini-vertex"
+    GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
+    DELEGATION_MODE: "auto"
+    INLINE_REVIEW_COMMENTS: "true"
+```
+
+When enabled, findings with resolved file paths and line numbers are posted as individual discussion threads on the MR diff. Findings without line information are included in the summary comment only. The summary comment (`POST_MR_COMMENT`) and inline comments can be used independently or together.
+
 ### Scheduled Analysis with MCP Tools
 
 ```yaml
@@ -202,7 +218,10 @@ custom_analysis:
 | `SUB_AGENT_MAX_ITERS` | `10` | Max iterations per sub-agent (1-15) |
 | `DELEGATION_AGENTS` | (empty) | JSON config for custom sub-agent definitions |
 | `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Directory for user-defined sub-agent YAML files |
+| `DELEGATION_VERIFY_FINDINGS` | `false` | Verify findings against diff before posting |
 | `TRIAGE_PROMPT` | (empty) | Custom instructions for the triage AI |
+| `POST_MR_COMMENT` | `true` | Post summary comment on the MR |
+| `INLINE_REVIEW_COMMENTS` | `false` | Post findings as inline comments on diff lines |
 | `GIT_DIFF_CONTEXT_LINES` | `10` | Context lines in diff |
 | `GIT_WORKING_DIRECTORY` | `.` | Git repo directory |
 

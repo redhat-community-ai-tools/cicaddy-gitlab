@@ -294,9 +294,14 @@ Security Analysis Focus:
         severity = finding.get("severity", "info").upper()
         emoji_map = {
             "CRITICAL": "\U0001f534",
+            "HIGH": "\U0001f534",
             "MAJOR": "\U0001f7e0",
+            "MEDIUM": "\U0001f7e0",
             "MINOR": "\U0001f7e1",
+            "LOW": "\U0001f7e1",
+            "WARNING": "\U0001f7e1",
             "NIT": "\U0001f535",
+            "INFO": "\U0001f535",
         }
         emoji = emoji_map.get(severity, "ℹ️")
         body = f"{emoji} **{severity}**: {finding.get('message', 'No description provided')}"

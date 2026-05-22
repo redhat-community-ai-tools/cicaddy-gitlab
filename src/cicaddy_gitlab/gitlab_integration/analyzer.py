@@ -142,11 +142,12 @@ class GitLabAnalyzer:
             diff_text = change.get("diff", "")
             if not diff_text:
                 continue
-            old_path = change.get("old_path", "")
+            old_path = change.get("old_path", change.get("new_path", ""))
             new_path = change.get("new_path", old_path)
-            diff_parts.append(f"diff --git a/{old_path} b/{new_path}")
-            diff_parts.append(f"--- a/{old_path}")
-            diff_parts.append(f"+++ b/{new_path}")
+            if not diff_text.lstrip().startswith("---"):
+                diff_parts.append(f"diff --git a/{old_path} b/{new_path}")
+                diff_parts.append(f"--- a/{old_path}")
+                diff_parts.append(f"+++ b/{new_path}")
             diff_parts.append(diff_text)
 
         return "\n".join(diff_parts)

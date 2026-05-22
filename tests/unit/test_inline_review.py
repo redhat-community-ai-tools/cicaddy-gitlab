@@ -397,6 +397,26 @@ class TestGetDiffFromApi:
         mock_project.mergerequests.get.assert_called_once_with("99")
         assert "diff --git a/f.py b/f.py" in result
 
+    @pytest.mark.asyncio
+    async def test_does_not_double_headers(self, analyzer, mock_gitlab):
+        """Diff text already containing --- headers is not re-wrapped."""
+        _, mock_project = mock_gitlab
+        mock_mr = MagicMock()
+        mock_mr.changes.return_value = {
+            "changes": [
+                {
+                    "old_path": "src/main.py",
+                    "new_path": "src/main.py",
+                    "diff": "--- a/src/main.py\n+++ b/src/main.py\n@@ -1 +1 @@\n-old\n+new\n",
+                }
+            ]
+        }
+
+        result = await analyzer._get_diff_from_api(mock_mr)
+
+        assert result.count("--- a/src/main.py") == 1
+        assert "diff --git" not in result
+
 
 # =============================================================================
 # post_inline_comments tests
@@ -660,6 +680,31 @@ class TestFormatInlineComment:
         result = MergeRequestAgent._format_inline_comment(finding)
         assert result.startswith("\U0001f535 **NIT**")
 
+    def test_high_severity(self):
+        finding = {"severity": "high", "message": "Unsafe deserialization"}
+        result = MergeRequestAgent._format_inline_comment(finding)
+        assert result.startswith("\U0001f534 **HIGH**")
+
+    def test_medium_severity(self):
+        finding = {"severity": "medium", "message": "Missing input validation"}
+        result = MergeRequestAgent._format_inline_comment(finding)
+        assert result.startswith("\U0001f7e0 **MEDIUM**")
+
+    def test_low_severity(self):
+        finding = {"severity": "low", "message": "Consider adding docstring"}
+        result = MergeRequestAgent._format_inline_comment(finding)
+        assert result.startswith("\U0001f7e1 **LOW**")
+
+    def test_info_severity(self):
+        finding = {"severity": "info", "message": "FYI note"}
+        result = MergeRequestAgent._format_inline_comment(finding)
+        assert result.startswith("\U0001f535 **INFO**")
+
+    def test_warning_severity(self):
+        finding = {"severity": "warning", "message": "Deprecated API"}
+        result = MergeRequestAgent._format_inline_comment(finding)
+        assert result.startswith("\U0001f7e1 **WARNING**")
+
     def test_unknown_severity_uses_info_emoji(self):
         finding = {"severity": "unknown", "message": "Something"}
         result = MergeRequestAgent._format_inline_comment(finding)
@@ -668,7 +713,7 @@ class TestFormatInlineComment:
     def test_missing_severity_defaults_to_info(self):
         finding = {"message": "No severity specified"}
         result = MergeRequestAgent._format_inline_comment(finding)
-        assert "ℹ️ **INFO**" in result
+        assert "\U0001f535 **INFO**" in result
 
     def test_no_suggestion_omitted(self):
         finding = {"severity": "major", "message": "Issue found"}

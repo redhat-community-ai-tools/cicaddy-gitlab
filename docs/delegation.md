@@ -46,7 +46,9 @@ uv run cicaddy run --env-file .env.mr --delegation-mode auto --max-sub-agents 2
 | `SUB_AGENT_MAX_ITERS` | `10` | Max inference iterations per sub-agent (1-15) |
 | `DELEGATION_AGENTS_DIR` | `.agents/delegation` | Directory for user-defined sub-agent YAML files |
 | `DELEGATION_AGENTS` | (empty) | JSON config for inline custom sub-agent definitions |
+| `DELEGATION_VERIFY_FINDINGS` | `false` | Verify findings against diff before posting |
 | `TRIAGE_PROMPT` | (empty) | Optional custom instructions for the triage AI |
+| `INLINE_REVIEW_COMMENTS` | `false` | Post findings as inline comments on diff lines |
 
 ### CLI Flags
 
