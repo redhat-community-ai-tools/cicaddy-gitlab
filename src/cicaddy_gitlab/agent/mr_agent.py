@@ -241,7 +241,7 @@ Security Analysis Focus:
             logger.info("Skipping GitLab comment posting (POST_MR_COMMENT=false)")
 
         # Post inline review comments on diff lines
-        inline_enabled = getattr(self.settings, "inline_review_comments", False)
+        inline_enabled = self.settings.inline_review_comments
         findings = analysis_result.get("findings", [])
         inline_findings = [f for f in findings if f.get("line") and f.get("file")]
         if inline_enabled and inline_findings and self.platform_analyzer:
@@ -288,7 +288,7 @@ Security Analysis Focus:
             "NIT": "\U0001f535",
         }
         emoji = emoji_map.get(severity, "ℹ️")
-        body = f"{emoji} **{severity}**: {finding['message']}"
+        body = f"{emoji} **{severity}**: {finding.get('message', 'No description provided')}"
         if finding.get("suggestion"):
             body += f"\n\n**Suggestion**: {finding['suggestion']}"
         if finding.get("agent_source"):
@@ -298,16 +298,12 @@ Security Analysis Focus:
     async def _post_inline_comments(self, findings: list[dict]) -> None:
         """Post inline review comments for findings with resolved lines.
 
-        Fetches MR diff refs, formats each finding body, and delegates
-        to the platform analyzer for discussion creation.
+        Formats each finding body and delegates to the platform analyzer
+        for discussion creation.  The analyzer fetches diff refs internally.
 
         Args:
             findings: List of finding dicts with ``file`` and ``line`` keys.
         """
-        diff_refs = await self.platform_analyzer._get_mr_diff_refs(
-            self.merge_request_iid
-        )
-
         # Format each finding body and prepare for posting
         formatted_findings = []
         for finding in findings:
@@ -323,9 +319,6 @@ Security Analysis Focus:
         result = await self.platform_analyzer.post_inline_comments(
             mr_iid=self.merge_request_iid,
             findings=formatted_findings,
-            base_sha=diff_refs["base_sha"],
-            head_sha=diff_refs["head_sha"],
-            start_sha=diff_refs["start_sha"],
         )
 
         logger.info(

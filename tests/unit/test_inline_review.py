@@ -2,7 +2,7 @@
 
 Tests cover:
 - GitLabAnalyzer._is_line_in_diff_range() validation
-- GitLabAnalyzer._get_mr_diff_refs() SHA retrieval
+- GitLabAnalyzer.get_mr_diff_refs() SHA retrieval
 - GitLabAnalyzer.post_inline_comments() discussion creation
 - MergeRequestAgent._format_inline_comment() body formatting
 - MergeRequestAgent._post_inline_comments() orchestration
@@ -49,7 +49,7 @@ def _make_agent(**settings_overrides):
     agent.settings.inline_review_comments = False
     agent.platform_analyzer = MagicMock()
     agent.platform_analyzer.post_merge_request_note = AsyncMock()
-    agent.platform_analyzer._get_mr_diff_refs = AsyncMock()
+    agent.platform_analyzer.get_mr_diff_refs = AsyncMock()
     agent.platform_analyzer.post_inline_comments = AsyncMock()
     agent.slack_notifier = None
     for k, v in settings_overrides.items():
@@ -59,7 +59,8 @@ def _make_agent(**settings_overrides):
 
 # --- Unified diff text for testing ---
 
-SAMPLE_DIFF = """\
+# Full diff with --- /+++ headers (git diff output)
+SAMPLE_DIFF_WITH_HEADERS = """\
 --- a/src/main.py
 +++ b/src/main.py
 @@ -10,6 +10,8 @@ def existing():
@@ -73,11 +74,35 @@ SAMPLE_DIFF = """\
  def another():
 """
 
+# Headerless diff (GitLab API mr.changes() format)
+SAMPLE_DIFF_HEADERLESS = """\
+@@ -10,6 +10,8 @@ def existing():
+     pass
+
+ def new_function():
++    x = 1
++    y = 2
+     return x + y
+
+ def another():
+"""
+
+# Default uses headerless format to match GitLab API behaviour
+SAMPLE_DIFF = SAMPLE_DIFF_HEADERLESS
+
 SAMPLE_CHANGES = [
     {
         "old_path": "src/main.py",
         "new_path": "src/main.py",
         "diff": SAMPLE_DIFF,
+    }
+]
+
+SAMPLE_CHANGES_WITH_HEADERS = [
+    {
+        "old_path": "src/main.py",
+        "new_path": "src/main.py",
+        "diff": SAMPLE_DIFF_WITH_HEADERS,
     }
 ]
 
@@ -147,8 +172,6 @@ class TestIsLineInDiffRange:
     def test_multi_hunk_file(self, analyzer):
         """Line in second hunk of a multi-hunk file returns True."""
         multi_hunk_diff = """\
---- a/src/app.py
-+++ b/src/app.py
 @@ -5,3 +5,4 @@ def foo():
      a = 1
      b = 2
@@ -174,14 +197,69 @@ class TestIsLineInDiffRange:
         # Gap between hunks
         assert GitLabAnalyzer._is_line_in_diff_range(changes, "src/app.py", 15) is False
 
+    def test_headerless_diff_works(self, analyzer):
+        """GitLab API headerless diff is handled by prepending synthetic headers."""
+        assert (
+            GitLabAnalyzer._is_line_in_diff_range(SAMPLE_CHANGES, "src/main.py", 12)
+            is True
+        )
+
+    def test_diff_with_headers_works(self, analyzer):
+        """Diff that already has --- /+++ headers is handled correctly."""
+        assert (
+            GitLabAnalyzer._is_line_in_diff_range(
+                SAMPLE_CHANGES_WITH_HEADERS, "src/main.py", 12
+            )
+            is True
+        )
+
+    def test_string_line_number_coerced(self, analyzer):
+        """String line numbers are coerced to int."""
+        assert (
+            GitLabAnalyzer._is_line_in_diff_range(SAMPLE_CHANGES, "src/main.py", "12")
+            is True
+        )
+
+    def test_invalid_line_type_returns_false(self, analyzer):
+        """Non-numeric line value returns False."""
+        assert (
+            GitLabAnalyzer._is_line_in_diff_range(SAMPLE_CHANGES, "src/main.py", "abc")
+            is False
+        )
+
+    def test_none_line_returns_false(self, analyzer):
+        """None line value returns False."""
+        assert (
+            GitLabAnalyzer._is_line_in_diff_range(SAMPLE_CHANGES, "src/main.py", None)
+            is False
+        )
+
+    def test_multiple_matching_entries_checked(self, analyzer):
+        """Multiple change entries for same file are all checked (continue, not return False)."""
+        # First entry has no matching line, second entry does
+        changes = [
+            {
+                "old_path": "src/main.py",
+                "new_path": "src/main.py",
+                "diff": "@@ -1,3 +1,3 @@\n a\n-b\n+c\n d\n",
+            },
+            {
+                "old_path": "src/main.py",
+                "new_path": "src/main.py",
+                "diff": "@@ -50,3 +50,4 @@\n x\n y\n+z\n w\n",
+            },
+        ]
+        # Line 52 is in the second entry's hunk (50-53), not the first's (1-3)
+        assert GitLabAnalyzer._is_line_in_diff_range(changes, "src/main.py", 52) is True
+
 
 # =============================================================================
-# _get_mr_diff_refs tests
+# get_mr_diff_refs tests
 # =============================================================================
 
 
 class TestGetMrDiffRefs:
-    """Test _get_mr_diff_refs SHA retrieval."""
+    """Test get_mr_diff_refs SHA retrieval."""
 
     @pytest.mark.asyncio
     async def test_returns_sha_dict(self, analyzer, mock_gitlab):
@@ -195,7 +273,7 @@ class TestGetMrDiffRefs:
         mock_mr.diffs.list.return_value = [mock_diff_version]
         mock_project.mergerequests.get.return_value = mock_mr
 
-        result = await analyzer._get_mr_diff_refs("42")
+        result = await analyzer.get_mr_diff_refs("42")
 
         assert result == {
             "base_sha": "aaa111",
@@ -215,12 +293,28 @@ class TestGetMrDiffRefs:
         mock_project.mergerequests.get.return_value = mock_mr
 
         with pytest.raises(IndexError):
-            await analyzer._get_mr_diff_refs("42")
+            await analyzer.get_mr_diff_refs("42")
 
 
 # =============================================================================
 # post_inline_comments tests
 # =============================================================================
+
+
+def _setup_mr_mock(mock_project, changes=None, diff_refs=None):
+    """Set up a mock MR with changes and diff version for post_inline_comments."""
+    mock_mr = MagicMock()
+    mock_mr.changes.return_value = {"changes": changes or SAMPLE_CHANGES}
+
+    mock_diff_version = MagicMock()
+    refs = diff_refs or {"base": "aaa", "head": "bbb", "start": "ccc"}
+    mock_diff_version.base_commit_sha = refs["base"]
+    mock_diff_version.head_commit_sha = refs["head"]
+    mock_diff_version.start_commit_sha = refs["start"]
+    mock_mr.diffs.list.return_value = [mock_diff_version]
+
+    mock_project.mergerequests.get.return_value = mock_mr
+    return mock_mr
 
 
 class TestPostInlineComments:
@@ -230,19 +324,14 @@ class TestPostInlineComments:
     async def test_posts_valid_inline_comment(self, analyzer, mock_gitlab):
         """Inline comment posted for finding with line in diff range."""
         _, mock_project = mock_gitlab
-        mock_mr = MagicMock()
-        mock_mr.changes.return_value = {"changes": SAMPLE_CHANGES}
+        mock_mr = _setup_mr_mock(mock_project)
         mock_mr.discussions.create.return_value = MagicMock()
-        mock_project.mergerequests.get.return_value = mock_mr
 
         findings = [{"file": "src/main.py", "line": 12, "body": "Fix this."}]
 
         result = await analyzer.post_inline_comments(
             mr_iid="42",
             findings=findings,
-            base_sha="aaa",
-            head_sha="bbb",
-            start_sha="ccc",
         )
 
         assert result["posted"] == 1
@@ -259,18 +348,13 @@ class TestPostInlineComments:
     async def test_skips_finding_outside_diff(self, analyzer, mock_gitlab):
         """Finding with line outside diff range is skipped."""
         _, mock_project = mock_gitlab
-        mock_mr = MagicMock()
-        mock_mr.changes.return_value = {"changes": SAMPLE_CHANGES}
-        mock_project.mergerequests.get.return_value = mock_mr
+        mock_mr = _setup_mr_mock(mock_project)
 
         findings = [{"file": "src/main.py", "line": 999, "body": "Out of range."}]
 
         result = await analyzer.post_inline_comments(
             mr_iid="42",
             findings=findings,
-            base_sha="aaa",
-            head_sha="bbb",
-            start_sha="ccc",
         )
 
         assert result["posted"] == 0
@@ -281,19 +365,14 @@ class TestPostInlineComments:
     async def test_handles_api_error(self, analyzer, mock_gitlab):
         """API error during discussion creation counts as failed."""
         _, mock_project = mock_gitlab
-        mock_mr = MagicMock()
-        mock_mr.changes.return_value = {"changes": SAMPLE_CHANGES}
+        mock_mr = _setup_mr_mock(mock_project)
         mock_mr.discussions.create.side_effect = Exception("API error")
-        mock_project.mergerequests.get.return_value = mock_mr
 
         findings = [{"file": "src/main.py", "line": 12, "body": "Fix this."}]
 
         result = await analyzer.post_inline_comments(
             mr_iid="42",
             findings=findings,
-            base_sha="aaa",
-            head_sha="bbb",
-            start_sha="ccc",
         )
 
         assert result["posted"] == 0
@@ -303,10 +382,8 @@ class TestPostInlineComments:
     async def test_mixed_valid_and_invalid_findings(self, analyzer, mock_gitlab):
         """Processes multiple findings: some posted, some skipped."""
         _, mock_project = mock_gitlab
-        mock_mr = MagicMock()
-        mock_mr.changes.return_value = {"changes": SAMPLE_CHANGES}
+        mock_mr = _setup_mr_mock(mock_project)
         mock_mr.discussions.create.return_value = MagicMock()
-        mock_project.mergerequests.get.return_value = mock_mr
 
         findings = [
             {"file": "src/main.py", "line": 12, "body": "Valid."},
@@ -317,9 +394,6 @@ class TestPostInlineComments:
         result = await analyzer.post_inline_comments(
             mr_iid="42",
             findings=findings,
-            base_sha="aaa",
-            head_sha="bbb",
-            start_sha="ccc",
         )
 
         assert result["posted"] == 1
@@ -329,21 +403,61 @@ class TestPostInlineComments:
     async def test_empty_findings_list(self, analyzer, mock_gitlab):
         """Empty findings list returns zero counts."""
         _, mock_project = mock_gitlab
-        mock_mr = MagicMock()
-        mock_mr.changes.return_value = {"changes": SAMPLE_CHANGES}
-        mock_project.mergerequests.get.return_value = mock_mr
+        _setup_mr_mock(mock_project)
 
         result = await analyzer.post_inline_comments(
             mr_iid="42",
             findings=[],
-            base_sha="aaa",
-            head_sha="bbb",
-            start_sha="ccc",
         )
 
         assert result["posted"] == 0
         assert result["skipped"] == 0
         assert result["failed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_renamed_file_uses_old_path(self, analyzer, mock_gitlab):
+        """Renamed file uses old_path from change entry, not new_path."""
+        _, mock_project = mock_gitlab
+        renamed_changes = [
+            {
+                "old_path": "src/old_name.py",
+                "new_path": "src/new_name.py",
+                "diff": SAMPLE_DIFF,
+            }
+        ]
+        mock_mr = _setup_mr_mock(mock_project, changes=renamed_changes)
+        mock_mr.discussions.create.return_value = MagicMock()
+
+        findings = [{"file": "src/new_name.py", "line": 12, "body": "Fix this."}]
+
+        result = await analyzer.post_inline_comments(
+            mr_iid="42",
+            findings=findings,
+        )
+
+        assert result["posted"] == 1
+        call_args = mock_mr.discussions.create.call_args[0][0]
+        assert call_args["position"]["new_path"] == "src/new_name.py"
+        assert call_args["position"]["old_path"] == "src/old_name.py"
+
+    @pytest.mark.asyncio
+    async def test_fetches_diff_refs_internally(self, analyzer, mock_gitlab):
+        """post_inline_comments fetches diff refs from MR diffs API."""
+        _, mock_project = mock_gitlab
+        mock_mr = _setup_mr_mock(
+            mock_project,
+            diff_refs={"base": "base123", "head": "head456", "start": "start789"},
+        )
+        mock_mr.discussions.create.return_value = MagicMock()
+
+        findings = [{"file": "src/main.py", "line": 12, "body": "Fix."}]
+
+        await analyzer.post_inline_comments(mr_iid="42", findings=findings)
+
+        call_args = mock_mr.discussions.create.call_args[0][0]
+        assert call_args["position"]["base_sha"] == "base123"
+        assert call_args["position"]["head_sha"] == "head456"
+        assert call_args["position"]["start_sha"] == "start789"
 
 
 # =============================================================================
@@ -414,13 +528,8 @@ class TestMrAgentPostInlineComments:
 
     @pytest.mark.asyncio
     async def test_calls_analyzer_post_inline(self):
-        """Orchestrates diff ref fetch, formatting, and posting."""
+        """Orchestrates formatting and posting (diff refs fetched by analyzer)."""
         agent = _make_agent(inline_review_comments=True)
-        agent.platform_analyzer._get_mr_diff_refs.return_value = {
-            "base_sha": "aaa",
-            "head_sha": "bbb",
-            "start_sha": "ccc",
-        }
         agent.platform_analyzer.post_inline_comments.return_value = {
             "posted": 1,
             "skipped": 0,
@@ -438,7 +547,6 @@ class TestMrAgentPostInlineComments:
 
         await agent._post_inline_comments(findings)
 
-        agent.platform_analyzer._get_mr_diff_refs.assert_awaited_once_with("42")
         agent.platform_analyzer.post_inline_comments.assert_awaited_once()
         call_kwargs = agent.platform_analyzer.post_inline_comments.call_args
         # Verify the findings passed have formatted bodies
@@ -451,11 +559,6 @@ class TestMrAgentPostInlineComments:
     async def test_formats_finding_bodies(self):
         """Each finding gets a formatted body via _format_inline_comment."""
         agent = _make_agent(inline_review_comments=True)
-        agent.platform_analyzer._get_mr_diff_refs.return_value = {
-            "base_sha": "aaa",
-            "head_sha": "bbb",
-            "start_sha": "ccc",
-        }
         agent.platform_analyzer.post_inline_comments.return_value = {
             "posted": 1,
             "skipped": 0,
@@ -478,6 +581,22 @@ class TestMrAgentPostInlineComments:
         posted_findings = call_args[1]["findings"]
         assert "\U0001f534 **CRITICAL**" in posted_findings[0]["body"]
 
+    @pytest.mark.asyncio
+    async def test_does_not_call_get_mr_diff_refs(self):
+        """Agent no longer calls get_mr_diff_refs (analyzer handles it)."""
+        agent = _make_agent(inline_review_comments=True)
+        agent.platform_analyzer.post_inline_comments.return_value = {
+            "posted": 0,
+            "skipped": 0,
+            "failed": 0,
+        }
+
+        await agent._post_inline_comments(
+            [{"file": "f.py", "line": 1, "severity": "nit", "message": "x"}]
+        )
+
+        agent.platform_analyzer.get_mr_diff_refs.assert_not_awaited()
+
 
 # =============================================================================
 # send_notifications integration tests
@@ -491,11 +610,6 @@ class TestSendNotificationsInline:
     async def test_inline_comments_posted_when_enabled(self):
         """Inline comments are posted when setting is enabled and findings exist."""
         agent = _make_agent(inline_review_comments=True)
-        agent.platform_analyzer._get_mr_diff_refs.return_value = {
-            "base_sha": "aaa",
-            "head_sha": "bbb",
-            "start_sha": "ccc",
-        }
         agent.platform_analyzer.post_inline_comments.return_value = {
             "posted": 1,
             "skipped": 0,
@@ -580,7 +694,7 @@ class TestSendNotificationsInline:
     async def test_inline_comments_error_does_not_break_notifications(self):
         """Error in inline posting does not prevent other notifications."""
         agent = _make_agent(inline_review_comments=True)
-        agent.platform_analyzer._get_mr_diff_refs.side_effect = Exception("API down")
+        agent.platform_analyzer.post_inline_comments.side_effect = Exception("API down")
 
         analysis_result = {
             "ai_analysis": "Review text.",
@@ -679,8 +793,8 @@ class TestInlineReviewSettings:
             )
             assert settings.inline_review_comments is True
 
-    def test_env_var_alias(self):
-        """INLINE_REVIEW_COMMENTS env var maps to the setting."""
+    def test_load_settings_wires_inline_review_true(self):
+        """load_settings() parses INLINE_REVIEW_COMMENTS env var."""
         import os
         from unittest.mock import patch as mock_patch
 
@@ -695,13 +809,61 @@ class TestInlineReviewSettings:
             },
             clear=False,
         ):
-            from cicaddy_gitlab.config.settings import Settings
+            from cicaddy_gitlab.config.settings import load_settings
 
-            settings = Settings(
-                ai_provider="gemini",
-                gemini_api_key="test-key",
-                mcp_servers_config="[]",
-                gitlab_api_url="https://gitlab.com/api/v4",
-            )
-            # The env var should be picked up by pydantic via validation_alias
+            settings = load_settings()
             assert settings.inline_review_comments is True
+
+    def test_load_settings_wires_inline_review_false(self):
+        """load_settings() parses INLINE_REVIEW_COMMENTS=false."""
+        import os
+        from unittest.mock import patch as mock_patch
+
+        with mock_patch.dict(
+            os.environ,
+            {
+                "CI_API_V4_URL": "https://gitlab.com/api/v4",
+                "AI_PROVIDER": "gemini",
+                "GEMINI_API_KEY": "test-key",
+                "MCP_SERVERS_CONFIG": "[]",
+                "INLINE_REVIEW_COMMENTS": "false",
+            },
+            clear=False,
+        ):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            assert settings.inline_review_comments is False
+
+    def test_load_settings_inline_review_invalid_value_warns(self):
+        """load_settings() warns on unrecognized INLINE_REVIEW_COMMENTS value."""
+        import os
+        from unittest.mock import patch as mock_patch
+
+        with mock_patch.dict(
+            os.environ,
+            {
+                "CI_API_V4_URL": "https://gitlab.com/api/v4",
+                "AI_PROVIDER": "gemini",
+                "GEMINI_API_KEY": "test-key",
+                "MCP_SERVERS_CONFIG": "[]",
+                "INLINE_REVIEW_COMMENTS": "invalid",
+            },
+            clear=False,
+        ):
+            from cicaddy_gitlab.config.settings import load_settings
+
+            settings = load_settings()
+            # Invalid value should fall back to default (False)
+            assert settings.inline_review_comments is False
+
+
+class TestFormatInlineCommentMissingMessage:
+    """Test _format_inline_comment with missing message key (Fix #4 / #11)."""
+
+    def test_missing_message_key_uses_default(self):
+        """Finding without 'message' key uses default text."""
+        finding = {"severity": "major"}
+        result = MergeRequestAgent._format_inline_comment(finding)
+        assert "No description provided" in result
+        assert "**MAJOR**" in result

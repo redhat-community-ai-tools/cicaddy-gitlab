@@ -515,22 +515,32 @@ class GitLabAnalyzer:
         """
         from cicaddy.delegation.line_resolver import parse_diff
 
+        try:
+            line = int(line)
+        except (ValueError, TypeError):
+            return False
+
         for change in changes:
             if change.get("new_path") != file_path:
                 continue
             diff_text = change.get("diff", "")
             if not diff_text:
                 return False
+            # GitLab API omits --- /+++ file headers; prepend them for parse_diff()
+            if not diff_text.lstrip().startswith("---"):
+                old_path = change.get("old_path", file_path)
+                new_path = change.get("new_path", file_path)
+                diff_text = f"--- a/{old_path}\n+++ b/{new_path}\n{diff_text}"
             diff_files = parse_diff(diff_text)
             for df in diff_files:
                 for hunk in df.hunks:
                     hunk_end = hunk.new_start + hunk.new_count - 1
                     if hunk.new_start <= line <= hunk_end:
                         return True
-            return False
+            continue
         return False
 
-    async def _get_mr_diff_refs(self, mr_iid: str) -> Dict[str, str]:
+    async def get_mr_diff_refs(self, mr_iid: str) -> Dict[str, str]:
         """Get base_sha, head_sha, start_sha from the latest MR diff version.
 
         Args:
@@ -555,28 +565,37 @@ class GitLabAnalyzer:
         self,
         mr_iid: str,
         findings: list[dict],
-        base_sha: str,
-        head_sha: str,
-        start_sha: str,
     ) -> Dict[str, int]:
         """Post inline discussion threads on MR diff lines.
 
-        For each finding, validates that the target line is within a diff
-        hunk, then creates a discussion thread with position data.
+        Fetches the MR changes and latest diff version internally, then
+        for each finding validates that the target line is within a diff
+        hunk and creates a discussion thread with position data.
 
         Args:
             mr_iid: Merge request IID.
             findings: List of finding dicts, each with ``file``, ``line``,
                 and ``body`` keys.
-            base_sha: Merge base commit SHA.
-            head_sha: Head commit SHA.
-            start_sha: Start commit SHA (same as base for simple diffs).
 
         Returns:
             Dict with ``posted``, ``skipped``, ``failed`` counts.
         """
         mr = self._get_project().mergerequests.get(mr_iid)
-        changes = mr.changes().get("changes", [])
+        changes_data = mr.changes()
+        changes = changes_data.get("changes", [])
+
+        # Get diff refs from the latest diff version
+        diffs = mr.diffs.list(per_page=1, order_by="created_at", sort="desc")
+        latest = diffs[0]
+        base_sha = latest.base_commit_sha
+        head_sha = latest.head_commit_sha
+        start_sha = latest.start_commit_sha
+
+        # Build old_path lookup for renamed files
+        old_path_map = {
+            c.get("new_path", ""): c.get("old_path", c.get("new_path", ""))
+            for c in changes
+        }
 
         posted = 0
         skipped = 0
@@ -600,7 +619,7 @@ class GitLabAnalyzer:
                 "start_sha": start_sha,
                 "position_type": "text",
                 "new_path": file_path,
-                "old_path": file_path,
+                "old_path": old_path_map.get(file_path, file_path),
                 "new_line": line,
             }
 

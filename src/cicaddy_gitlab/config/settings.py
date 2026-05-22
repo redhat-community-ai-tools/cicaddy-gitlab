@@ -192,6 +192,21 @@ def load_settings() -> Settings:
             # Unset to prevent Pydantic from trying to parse invalid value
             os.environ.pop("POST_MR_COMMENT", None)
 
+    # Inline review comments control
+    inline_review = os.getenv("INLINE_REVIEW_COMMENTS", "").strip()
+    if inline_review:
+        inline_lower = inline_review.lower()
+        if inline_lower in ("true", "1", "yes"):
+            env_data["inline_review_comments"] = True
+        elif inline_lower in ("false", "0", "no"):
+            env_data["inline_review_comments"] = False
+        else:
+            logger.warning(
+                f"Unrecognized INLINE_REVIEW_COMMENTS value '{inline_review}' — "
+                "expected true/false/1/0/yes/no. Defaulting to false."
+            )
+            os.environ.pop("INLINE_REVIEW_COMMENTS", None)
+
     # AI provider configuration
     if os.getenv("AI_PROVIDER"):
         env_data["ai_provider"] = os.getenv("AI_PROVIDER")
