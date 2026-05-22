@@ -2,7 +2,7 @@
 
 Tests cover:
 - GitLabAnalyzer._is_line_in_diff_range() validation
-- GitLabAnalyzer.get_mr_diff_refs() SHA retrieval
+- GitLabAnalyzer._get_diff_from_api() diff header generation
 - GitLabAnalyzer.post_inline_comments() discussion creation
 - MergeRequestAgent._format_inline_comment() body formatting
 - MergeRequestAgent._post_inline_comments() orchestration
@@ -49,7 +49,6 @@ def _make_agent(**settings_overrides):
     agent.settings.inline_review_comments = False
     agent.platform_analyzer = MagicMock()
     agent.platform_analyzer.post_merge_request_note = AsyncMock()
-    agent.platform_analyzer.get_mr_diff_refs = AsyncMock()
     agent.platform_analyzer.post_inline_comments = AsyncMock()
     agent.slack_notifier = None
     for k, v in settings_overrides.items():
@@ -252,48 +251,151 @@ class TestIsLineInDiffRange:
         # Line 52 is in the second entry's hunk (50-53), not the first's (1-3)
         assert GitLabAnalyzer._is_line_in_diff_range(changes, "src/main.py", 52) is True
 
+    def test_empty_diff_entry_skipped_to_check_next(self):
+        """Empty diff in first entry does not prevent checking subsequent entries."""
+        changes = [
+            {
+                "old_path": "src/main.py",
+                "new_path": "src/main.py",
+                "diff": "",
+            },
+            {
+                "old_path": "src/main.py",
+                "new_path": "src/main.py",
+                "diff": "@@ -10,3 +10,4 @@\n a\n b\n+c\n d\n",
+            },
+        ]
+        assert GitLabAnalyzer._is_line_in_diff_range(changes, "src/main.py", 12) is True
+
 
 # =============================================================================
-# get_mr_diff_refs tests
+# _get_diff_from_api tests
 # =============================================================================
 
 
-class TestGetMrDiffRefs:
-    """Test get_mr_diff_refs SHA retrieval."""
+class TestGetDiffFromApi:
+    """Test _get_diff_from_api diff header generation."""
 
     @pytest.mark.asyncio
-    async def test_returns_sha_dict(self, analyzer, mock_gitlab):
-        """Returns base_sha, head_sha, start_sha from latest diff version."""
+    async def test_prepends_git_diff_headers(self, analyzer, mock_gitlab):
+        """Generates diff --git, ---, +++ headers for each change."""
         _, mock_project = mock_gitlab
         mock_mr = MagicMock()
-        mock_diff_version = MagicMock()
-        mock_diff_version.base_commit_sha = "aaa111"
-        mock_diff_version.head_commit_sha = "bbb222"
-        mock_diff_version.start_commit_sha = "ccc333"
-        mock_mr.diffs.list.return_value = [mock_diff_version]
-        mock_project.mergerequests.get.return_value = mock_mr
-
-        result = await analyzer.get_mr_diff_refs("42")
-
-        assert result == {
-            "base_sha": "aaa111",
-            "head_sha": "bbb222",
-            "start_sha": "ccc333",
+        mock_mr.changes.return_value = {
+            "changes": [
+                {
+                    "old_path": "src/main.py",
+                    "new_path": "src/main.py",
+                    "diff": "@@ -1,3 +1,4 @@\n line1\n+line2\n line3\n",
+                }
+            ]
         }
-        mock_mr.diffs.list.assert_called_once_with(
-            per_page=1, order_by="created_at", sort="desc"
-        )
+
+        result = await analyzer._get_diff_from_api(mock_mr)
+
+        assert "diff --git a/src/main.py b/src/main.py" in result
+        assert "--- a/src/main.py" in result
+        assert "+++ b/src/main.py" in result
+        assert "@@ -1,3 +1,4 @@" in result
 
     @pytest.mark.asyncio
-    async def test_raises_on_empty_diffs(self, analyzer, mock_gitlab):
-        """Raises IndexError when no diff versions exist."""
+    async def test_skips_empty_diff(self, analyzer, mock_gitlab):
+        """Changes with empty diff text are skipped."""
         _, mock_project = mock_gitlab
         mock_mr = MagicMock()
-        mock_mr.diffs.list.return_value = []
+        mock_mr.changes.return_value = {
+            "changes": [
+                {"old_path": "empty.py", "new_path": "empty.py", "diff": ""},
+                {
+                    "old_path": "real.py",
+                    "new_path": "real.py",
+                    "diff": "@@ -1 +1 @@\n-old\n+new\n",
+                },
+            ]
+        }
+
+        result = await analyzer._get_diff_from_api(mock_mr)
+
+        assert "empty.py" not in result
+        assert "diff --git a/real.py b/real.py" in result
+
+    @pytest.mark.asyncio
+    async def test_renamed_file_uses_both_paths(self, analyzer, mock_gitlab):
+        """Renamed files show old_path in --- and new_path in +++."""
+        _, mock_project = mock_gitlab
+        mock_mr = MagicMock()
+        mock_mr.changes.return_value = {
+            "changes": [
+                {
+                    "old_path": "old_name.py",
+                    "new_path": "new_name.py",
+                    "diff": "@@ -1 +1 @@\n-old\n+new\n",
+                }
+            ]
+        }
+
+        result = await analyzer._get_diff_from_api(mock_mr)
+
+        assert "diff --git a/old_name.py b/new_name.py" in result
+        assert "--- a/old_name.py" in result
+        assert "+++ b/new_name.py" in result
+
+    @pytest.mark.asyncio
+    async def test_multiple_files(self, analyzer, mock_gitlab):
+        """Multiple changes produce concatenated diff output."""
+        _, mock_project = mock_gitlab
+        mock_mr = MagicMock()
+        mock_mr.changes.return_value = {
+            "changes": [
+                {
+                    "old_path": "a.py",
+                    "new_path": "a.py",
+                    "diff": "@@ -1 +1 @@\n-x\n+y\n",
+                },
+                {
+                    "old_path": "b.py",
+                    "new_path": "b.py",
+                    "diff": "@@ -1 +1 @@\n-1\n+2\n",
+                },
+            ]
+        }
+
+        result = await analyzer._get_diff_from_api(mock_mr)
+
+        assert "diff --git a/a.py b/a.py" in result
+        assert "diff --git a/b.py b/b.py" in result
+
+    @pytest.mark.asyncio
+    async def test_no_changes_returns_empty(self, analyzer, mock_gitlab):
+        """Empty changes list returns empty string."""
+        _, mock_project = mock_gitlab
+        mock_mr = MagicMock()
+        mock_mr.changes.return_value = {"changes": []}
+
+        result = await analyzer._get_diff_from_api(mock_mr)
+
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_iid_string_fetches_mr(self, analyzer, mock_gitlab):
+        """Passing a string IID fetches the MR from the project."""
+        _, mock_project = mock_gitlab
+        mock_mr = MagicMock()
+        mock_mr.changes.return_value = {
+            "changes": [
+                {
+                    "old_path": "f.py",
+                    "new_path": "f.py",
+                    "diff": "@@ -1 +1 @@\n-a\n+b\n",
+                }
+            ]
+        }
         mock_project.mergerequests.get.return_value = mock_mr
 
-        with pytest.raises(IndexError):
-            await analyzer.get_mr_diff_refs("42")
+        result = await analyzer._get_diff_from_api("99")
+
+        mock_project.mergerequests.get.assert_called_once_with("99")
+        assert "diff --git a/f.py b/f.py" in result
 
 
 # =============================================================================
@@ -459,6 +561,67 @@ class TestPostInlineComments:
         assert call_args["position"]["head_sha"] == "head456"
         assert call_args["position"]["start_sha"] == "start789"
 
+    @pytest.mark.asyncio
+    async def test_returns_early_on_empty_diffs(self, analyzer, mock_gitlab):
+        """Returns all-skipped when MR has no diff versions."""
+        _, mock_project = mock_gitlab
+        mock_mr = MagicMock()
+        mock_mr.changes.return_value = {"changes": SAMPLE_CHANGES}
+        mock_mr.diffs.list.return_value = []
+        mock_project.mergerequests.get.return_value = mock_mr
+
+        findings = [{"file": "src/main.py", "line": 12, "body": "Fix."}]
+
+        result = await analyzer.post_inline_comments(mr_iid="42", findings=findings)
+
+        assert result == {"posted": 0, "skipped": 1, "failed": 0}
+        mock_mr.discussions.create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_coerces_string_line_to_int(self, analyzer, mock_gitlab):
+        """String line numbers are coerced to int for the API position."""
+        _, mock_project = mock_gitlab
+        mock_mr = _setup_mr_mock(mock_project)
+        mock_mr.discussions.create.return_value = MagicMock()
+
+        findings = [{"file": "src/main.py", "line": "12", "body": "Fix."}]
+
+        result = await analyzer.post_inline_comments(mr_iid="42", findings=findings)
+
+        assert result["posted"] == 1
+        call_args = mock_mr.discussions.create.call_args[0][0]
+        assert call_args["position"]["new_line"] == 12
+        assert isinstance(call_args["position"]["new_line"], int)
+
+    @pytest.mark.asyncio
+    async def test_skips_invalid_line_type(self, analyzer, mock_gitlab):
+        """Findings with non-numeric line values are skipped."""
+        _, mock_project = mock_gitlab
+        _setup_mr_mock(mock_project)
+
+        findings = [{"file": "src/main.py", "line": "abc", "body": "Bad."}]
+
+        result = await analyzer.post_inline_comments(mr_iid="42", findings=findings)
+
+        assert result["skipped"] == 1
+        assert result["posted"] == 0
+
+    @pytest.mark.asyncio
+    async def test_caps_at_max_comments(self, analyzer, mock_gitlab):
+        """Findings beyond the cap are not posted."""
+        _, mock_project = mock_gitlab
+        mock_mr = _setup_mr_mock(mock_project)
+        mock_mr.discussions.create.return_value = MagicMock()
+
+        findings = [
+            {"file": "src/main.py", "line": 12, "body": f"Issue {i}"} for i in range(30)
+        ]
+
+        result = await analyzer.post_inline_comments(mr_iid="42", findings=findings)
+
+        assert result["posted"] + result["skipped"] + result["failed"] == 25
+        assert mock_mr.discussions.create.call_count == 25
+
 
 # =============================================================================
 # _format_inline_comment tests
@@ -580,22 +743,6 @@ class TestMrAgentPostInlineComments:
         call_args = agent.platform_analyzer.post_inline_comments.call_args
         posted_findings = call_args[1]["findings"]
         assert "\U0001f534 **CRITICAL**" in posted_findings[0]["body"]
-
-    @pytest.mark.asyncio
-    async def test_does_not_call_get_mr_diff_refs(self):
-        """Agent no longer calls get_mr_diff_refs (analyzer handles it)."""
-        agent = _make_agent(inline_review_comments=True)
-        agent.platform_analyzer.post_inline_comments.return_value = {
-            "posted": 0,
-            "skipped": 0,
-            "failed": 0,
-        }
-
-        await agent._post_inline_comments(
-            [{"file": "f.py", "line": 1, "severity": "nit", "message": "x"}]
-        )
-
-        agent.platform_analyzer.get_mr_diff_refs.assert_not_awaited()
 
 
 # =============================================================================

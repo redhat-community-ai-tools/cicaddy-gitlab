@@ -533,7 +533,7 @@ class GitLabAnalyzer:
                 continue
             diff_text = change.get("diff", "")
             if not diff_text:
-                return False
+                continue
             # GitLab API omits --- /+++ file headers; prepend them for parse_diff()
             if not diff_text.lstrip().startswith("---"):
                 old_path = change.get("old_path", file_path)
@@ -545,29 +545,7 @@ class GitLabAnalyzer:
                     hunk_end = hunk.new_start + hunk.new_count - 1
                     if hunk.new_start <= line <= hunk_end:
                         return True
-            continue
         return False
-
-    async def get_mr_diff_refs(self, mr_iid: str) -> Dict[str, str]:
-        """Get base_sha, head_sha, start_sha from the latest MR diff version.
-
-        Args:
-            mr_iid: Merge request IID.
-
-        Returns:
-            Dict with ``base_sha``, ``head_sha``, ``start_sha`` keys.
-
-        Raises:
-            IndexError: If no diff versions exist for the MR.
-        """
-        mr = self._get_project().mergerequests.get(mr_iid)
-        diffs = mr.diffs.list(per_page=1, order_by="created_at", sort="desc")
-        latest = diffs[0]
-        return {
-            "base_sha": latest.base_commit_sha,
-            "head_sha": latest.head_commit_sha,
-            "start_sha": latest.start_commit_sha,
-        }
 
     async def post_inline_comments(
         self,
@@ -594,6 +572,11 @@ class GitLabAnalyzer:
 
         # Get diff refs from the latest diff version
         diffs = mr.diffs.list(per_page=1, order_by="created_at", sort="desc")
+        if not diffs:
+            logger.warning(
+                "No diff versions found for MR %s, skipping inline comments", mr_iid
+            )
+            return {"posted": 0, "skipped": len(findings), "failed": 0}
         latest = diffs[0]
         base_sha = latest.base_commit_sha
         head_sha = latest.head_commit_sha
@@ -605,13 +588,28 @@ class GitLabAnalyzer:
             for c in changes
         }
 
+        max_comments = 25
+        if len(findings) > max_comments:
+            logger.warning(
+                "Limiting inline comments from %d to %d", len(findings), max_comments
+            )
+            findings = findings[:max_comments]
+
         posted = 0
         skipped = 0
         failed = 0
 
         for finding in findings:
             file_path = finding["file"]
-            line = finding["line"]
+            try:
+                line = int(finding["line"])
+            except (ValueError, TypeError):
+                logger.debug(
+                    f"Skipping inline comment: invalid line {finding['line']!r} "
+                    f"in {file_path}"
+                )
+                skipped += 1
+                continue
 
             if not self._is_line_in_diff_range(changes, file_path, line):
                 logger.debug(

@@ -245,17 +245,21 @@ Security Analysis Focus:
         findings = analysis_result.get("findings", [])
         inline_findings = [f for f in findings if f.get("line") and f.get("file")]
         if inline_enabled:
-            if inline_findings and self.platform_analyzer:
-                try:
-                    await self._post_inline_comments(inline_findings)
-                except Exception as e:
-                    logger.error(f"Failed to post inline comments: {e}", exc_info=True)
-            else:
+            if not self.platform_analyzer:
+                logger.warning(
+                    "Inline review: platform analyzer not available, skipping"
+                )
+            elif not inline_findings:
                 skipped = len(findings) - len(inline_findings)
                 logger.info(
                     f"Inline review: {len(inline_findings)} findings with line+file, "
                     f"{skipped} without (total {len(findings)})"
                 )
+            else:
+                try:
+                    await self._post_inline_comments(inline_findings)
+                except Exception as e:
+                    logger.error(f"Failed to post inline comments: {e}", exc_info=True)
 
         # Send Slack notification using parent class method
         await super().send_notifications(report, analysis_result)
