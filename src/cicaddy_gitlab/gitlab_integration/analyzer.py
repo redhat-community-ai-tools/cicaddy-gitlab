@@ -137,11 +137,19 @@ class GitLabAnalyzer:
 
         changes = mr.changes()
 
-        diff_content = ""
+        diff_parts = []
         for change in changes.get("changes", []):
-            diff_content += change.get("diff", "") + "\n"
+            diff_text = change.get("diff", "")
+            if not diff_text:
+                continue
+            old_path = change.get("old_path", "")
+            new_path = change.get("new_path", old_path)
+            diff_parts.append(f"diff --git a/{old_path} b/{new_path}")
+            diff_parts.append(f"--- a/{old_path}")
+            diff_parts.append(f"+++ b/{new_path}")
+            diff_parts.append(diff_text)
 
-        return diff_content
+        return "\n".join(diff_parts)
 
     async def get_changed_files(self, mr_iid: str) -> list:
         """Get list of changed files in merge request."""
