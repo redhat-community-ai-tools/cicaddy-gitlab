@@ -32,7 +32,7 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -48,7 +48,7 @@ jobs:
 
       - name: Restore code graph cache
         if: steps.changes.outputs.python_changed == 'true'
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .code-review-graph/
           key: code-graph-${{ github.event.pull_request.base.sha }}
@@ -64,7 +64,7 @@ jobs:
             --base-ref origin/${{ github.event.pull_request.base.ref }} \
             --update -o workspace/graph_context.json
 
-      - uses: redhat-community-ai-tools/cicaddy-action@v0.7.1
+      - uses: redhat-community-ai-tools/cicaddy-action@v0.8.0
         with:
           ai_provider: gemini
           ai_model: gemini-3.5-flash
